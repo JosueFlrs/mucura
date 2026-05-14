@@ -5,12 +5,12 @@ export const CalculadoraCotizaciones = () => {
     const [tarifas, setTarifas] = useState({});
     const [cargandoTarifas, setCargandoTarifas] = useState(true);
 
-    // Iniciamos la lista con un solo archivo vacío por default
     const [listaArchivos, setListaArchivos] = useState([
         { id: Date.now(), paginas: '', tipoServicio: 'a4Color', esDobleFaz: false, anillado: false }
     ]);
 
-    const [cotizacionFinal, setCotizacionFinal] = useState(0);
+    const [totalSinRedondear, setTotalSinRedondear] = useState(0);
+    const [totalRedondeado, setTotalRedondeado] = useState(0);
 
     useEffect(() => {
         const obtenerTarifas = async () => {
@@ -36,16 +36,17 @@ export const CalculadoraCotizaciones = () => {
     }, []);
 
     const manejarCambioArchivo = (id, campo, valor) => {
-        // 1. Actualizamos el archivo que el usuario está modificando
+        setTotalSinRedondear(0);
+        setTotalRedondeado(0);
+
         const nuevaLista = listaArchivos.map(archivo =>
-            archivo.id === id ? { ...archivo, [campo]: valor } : archivo
+            archivo.id === id
+                ? { ...archivo, [campo]: valor, detalle: null }
+                : { ...archivo, detalle: null }
         );
 
-        // 2. Lógica inteligente para agregar o quitar el último input
         if (campo === 'paginas') {
             const ultimoArchivo = nuevaLista[nuevaLista.length - 1];
-
-            // Si el último input de la lista se acaba de llenar, agregamos uno nuevo vacío abajo
             if (ultimoArchivo.paginas !== '') {
                 nuevaLista.push({
                     id: Date.now() + Math.random(),
@@ -54,10 +55,7 @@ export const CalculadoraCotizaciones = () => {
                     esDobleFaz: false,
                     anillado: false
                 });
-            }
-            // Si el usuario borró contenido, revisamos si sobraron inputs vacíos al final
-            else {
-                // Mientras haya más de un elemento y los últimos dos estén vacíos, borramos el que sobra
+            } else {
                 while (
                     nuevaLista.length > 1 &&
                     nuevaLista[nuevaLista.length - 2].paginas === '' &&
@@ -67,130 +65,175 @@ export const CalculadoraCotizaciones = () => {
                 }
             }
         }
-
         setListaArchivos(nuevaLista);
     };
 
     const calcularTotalGeneral = () => {
-        let acumulado = 0;
+        let acumuladoMayorista = 0;
+        const agrupacionPorVolumen = {};
 
         listaArchivos.forEach(archivo => {
             const cantidad = parseInt(archivo.paginas) || 0;
-
-            if (cantidad <= 0) return;
-
-            let claveTarifa = archivo.tipoServicio;
-            if (archivo.esDobleFaz) {
-                claveTarifa += 'DobleFaz';
+            if (cantidad > 0) {
+                const claveGrupo = `${archivo.tipoServicio}-${archivo.esDobleFaz}`;
+                agrupacionPorVolumen[claveGrupo] = (agrupacionPorVolumen[claveGrupo] || 0) + cantidad;
             }
-
-            const escala = tarifas[claveTarifa];
-
-            if (!escala) return;
-
-            let costoUnitario = 0;
-
-            if (cantidad <= 50) costoUnitario = escala.precioHasta50;
-            else if (cantidad <= 100) costoUnitario = escala.precioHasta100;
-            else if (cantidad <= 200) costoUnitario = escala.precioHasta200;
-            else costoUnitario = escala.precioMasDe200;
-
-            let subtotalArchivo = cantidad * costoUnitario;
-
-            if (archivo.anillado) {
-                subtotalArchivo += 1500;
-            }
-
-            acumulado += subtotalArchivo;
         });
 
-        setCotizacionFinal(acumulado);
+        const listaConResultados = listaArchivos.map(archivo => {
+            const cantidad = parseInt(archivo.paginas) || 0;
+            if (cantidad <= 0) return { ...archivo, detalle: null };
+
+            const claveGrupo = `${archivo.tipoServicio}-${archivo.esDobleFaz}`;
+            const totalPaginasDelGrupo = agrupacionPorVolumen[claveGrupo];
+            let claveTarifa = archivo.tipoServicio + (archivo.esDobleFaz ? 'DobleFaz' : '');
+            const escala = tarifas[claveTarifa];
+
+            if (!escala) return { ...archivo, detalle: null };
+
+            const obtenerCostoUnitario = (cant) => {
+                if (cant <= 50) return escala.precioHasta50;
+                if (cant <= 100) return escala.precioHasta100;
+                if (cant <= 200) return escala.precioHasta200;
+                return escala.precioMasDe200;
+            };
+
+            const costoUnitarioMinorista = obtenerCostoUnitario(cantidad);
+            const costoUnitarioMayorista = obtenerCostoUnitario(totalPaginasDelGrupo);
+
+            const subtotalImpresionMayorista = cantidad * costoUnitarioMayorista;
+            const subtotalImpresionMinorista = cantidad * costoUnitarioMinorista;
+            const costoAnillado = archivo.anillado ? 1500 : 0;
+
+            const totalMinorista = subtotalImpresionMinorista + costoAnillado;
+            const totalMayorista = subtotalImpresionMayorista + costoAnillado;
+
+            acumuladoMayorista += totalMayorista;
+
+            return {
+                ...archivo,
+                detalle: {
+                    precioUnitarioMayorista: costoUnitarioMayorista,
+                    subtotalImpresion: subtotalImpresionMayorista,
+                    costoAnillado: costoAnillado,
+                    totalMinorista: totalMinorista,
+                    totalMayorista: totalMayorista,
+                    ahorroDetectado: totalMinorista > totalMayorista
+                }
+            };
+        });
+
+        setListaArchivos(listaConResultados);
+        setTotalSinRedondear(acumuladoMayorista);
+        setTotalRedondeado(Math.ceil(acumuladoMayorista / 100) * 100);
     };
 
-    if (cargandoTarifas) {
-        return (
-            <div className="flex justify-center items-center p-10">
-                <p className="text-xl text-gray-600 font-semibold animate-pulse">
-                    cargando tarifas de impresion...
-                </p>
-            </div>
-        );
-    }
+    if (cargandoTarifas) return <div className="p-10 text-center animate-pulse text-gray-500 font-bold">CARGANDO TARIFAS...</div>;
 
     return (
-        <div className="p-6 max-w-5xl mx-auto bg-white rounded-xl shadow-lg border border-gray-100">
-            <h2 className="text-2xl font-bold mb-6 text-gray-800 border-b pb-2">cotizacion por archivos</h2>
+        <div className="p-6 max-w-6xl mx-auto bg-white rounded-xl shadow-lg border border-gray-100">
+            <h2 className="text-2xl font-bold mb-6 text-gray-800 border-b pb-2">cotización de pedidos</h2>
 
             <div className="space-y-4 mb-8">
                 {listaArchivos.map((archivo, indice) => (
-                    <div key={archivo.id} className="grid grid-cols-1 md:grid-cols-5 gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200 items-center transition-all duration-300 ease-in-out">
+                    <div key={archivo.id} className="grid grid-cols-1 md:grid-cols-6 gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200 items-center transition-all">
 
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">pdf {indice + 1} (paginas)</label>
+                        <div className="md:col-span-1">
+                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">pdf {indice + 1}</label>
                             <input
                                 type="number"
-                                min="0"
-                                className="w-full p-2 border border-gray-300 rounded-md shadow-sm outline-none focus:ring-2 focus:ring-blue-500"
+                                className="w-full p-2 border border-gray-300 rounded shadow-sm outline-none focus:ring-2 focus:ring-blue-500 font-bold text-gray-700"
                                 value={archivo.paginas}
-                                onChange={(evento) => manejarCambioArchivo(archivo.id, 'paginas', evento.target.value)}
-                                placeholder="0"
+                                onChange={(e) => manejarCambioArchivo(archivo.id, 'paginas', e.target.value)}
+                                placeholder="págs"
                             />
                         </div>
 
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">tipo de impresion</label>
+                        <div className="md:col-span-1">
+                            <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">tipo</label>
                             <select
-                                className="w-full p-2 border border-gray-300 rounded-md shadow-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                                className="w-full p-2 border border-gray-300 rounded shadow-sm bg-white text-sm font-medium"
                                 value={archivo.tipoServicio}
-                                onChange={(evento) => manejarCambioArchivo(archivo.id, 'tipoServicio', evento.target.value)}
+                                onChange={(e) => manejarCambioArchivo(archivo.id, 'tipoServicio', e.target.value)}
                             >
                                 <option value="a4Color">a4 color</option>
-                                <option value="a4BlancoYNegro">a4 blanco y negro</option>
+                                <option value="a4BlancoYNegro">a4 b/n</option>
                             </select>
                         </div>
 
-                        <div className="flex flex-col space-y-2 pt-2 md:col-span-2">
-                            <label className="flex items-center space-x-2 text-sm text-gray-700 cursor-pointer w-max">
-                                <input
-                                    type="checkbox"
-                                    className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
-                                    checked={archivo.esDobleFaz}
-                                    onChange={(evento) => manejarCambioArchivo(archivo.id, 'esDobleFaz', evento.target.checked)}
-                                />
-                                <span className="font-medium">es doble faz</span>
+                        <div className="flex flex-col space-y-2 pt-1 md:col-span-1">
+                            <label className="flex items-center space-x-2 text-xs text-gray-600 cursor-pointer hover:text-blue-600 transition-colors">
+                                <input type="checkbox" className="rounded" checked={archivo.esDobleFaz} onChange={(e) => manejarCambioArchivo(archivo.id, 'esDobleFaz', e.target.checked)} />
+                                <span className="font-semibold">doble faz</span>
                             </label>
-                            <label className="flex items-center space-x-2 text-sm text-gray-700 cursor-pointer w-max">
-                                <input
-                                    type="checkbox"
-                                    className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
-                                    checked={archivo.anillado}
-                                    onChange={(evento) => manejarCambioArchivo(archivo.id, 'anillado', evento.target.checked)}
-                                />
-                                <span className="font-medium">incluye anillado ($1500)</span>
+                            <label className="flex items-center space-x-2 text-xs text-gray-600 cursor-pointer hover:text-blue-600 transition-colors">
+                                <input type="checkbox" className="rounded" checked={archivo.anillado} onChange={(e) => manejarCambioArchivo(archivo.id, 'anillado', e.target.checked)} />
+                                <span className="font-semibold">anillado</span>
                             </label>
                         </div>
 
-                        <div className="text-right italic text-gray-400 text-sm md:col-span-1">
-                            {archivo.paginas === '' ? 'nuevo archivo...' : `archivo ${indice + 1}`}
-                        </div>
+                        <div className="md:col-span-3 flex justify-end">
+                            {archivo.detalle ? (
+                                <div className="bg-white p-3 rounded-lg border border-gray-200 shadow-sm w-full max-w-sm">
+                                    {/* Desglose de costos */}
+                                    <div className="space-y-1 border-b border-gray-100 pb-2 mb-2">
+                                        <div className="flex justify-between text-[11px] text-gray-600">
+                                            <span>Impresiones ({archivo.paginas} x ${archivo.detalle.precioUnitarioMayorista})</span>
+                                            <span className="font-bold">${archivo.detalle.subtotalImpresion.toLocaleString('es-AR')}</span>
+                                        </div>
+                                        {archivo.anillado && (
+                                            <div className="flex justify-between text-[11px] text-blue-600 font-bold">
+                                                <span>Servicio de Anillado</span>
+                                                <span>+ $1.500</span>
+                                            </div>
+                                        )}
+                                    </div>
 
+                                    {/* Totales y Ahorro */}
+                                    <div className="flex justify-between items-center">
+                                        <div className="text-left">
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase">Precio Normal</p>
+                                            <p className="text-sm font-bold text-gray-400 line-through">${archivo.detalle.totalMinorista.toLocaleString('es-AR')}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-[10px] font-bold text-green-500 uppercase italic">Subtotal Archivo</p>
+                                            <p className="text-xl font-black text-green-700 leading-none">${archivo.detalle.totalMayorista.toLocaleString('es-AR')}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="text-gray-300 italic text-sm border-2 border-dashed border-gray-100 rounded-lg p-4 w-full text-center">
+                                    {archivo.paginas !== '' ? 'calculando detalle...' : 'esperando datos del archivo'}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 ))}
             </div>
 
-            <button
-                onClick={calcularTotalGeneral}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-md transition-all text-lg"
-            >
-                calcular presupuesto total
+            <button onClick={calcularTotalGeneral} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-5 rounded-2xl shadow-xl transition-all text-xl uppercase tracking-wider mb-2">
+                Calcular Presupuesto Final
             </button>
 
-            {cotizacionFinal > 0 && (
-                <div className="mt-8 p-6 bg-blue-50 border-2 border-blue-200 rounded-2xl text-center shadow-inner animate-fade-in-up">
-                    <p className="text-blue-600 font-bold uppercase tracking-widest text-sm mb-1">total a cobrar</p>
-                    <p className="text-5xl font-black text-blue-900">
-                        ${cotizacionFinal.toLocaleString('es-AR')}
-                    </p>
+            {totalRedondeado > 0 && (
+                <div className="mt-6 p-8 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl text-center shadow-2xl relative overflow-hidden text-white">
+                    <p className="text-blue-100 font-bold uppercase tracking-widest text-xs mb-3 opacity-80">Total final de la orden de trabajo</p>
+
+                    <div className="flex flex-col items-center justify-center">
+                        {totalSinRedondear !== totalRedondeado && (
+                            <p className="text-lg text-blue-200 line-through font-medium mb-1 opacity-60">
+                                Exacto: ${totalSinRedondear.toLocaleString('es-AR')}
+                            </p>
+                        )}
+                        <div className="bg-white/10 px-8 py-4 rounded-2xl backdrop-blur-sm border border-white/20">
+                            <p className="text-7xl font-black drop-shadow-lg">
+                                ${totalRedondeado.toLocaleString('es-AR')}
+                            </p>
+                        </div>
+                        <p className="text-[11px] text-blue-200 font-bold mt-4 uppercase tracking-widest bg-blue-800/40 px-3 py-1 rounded-full">
+                            * Redondeado a cientos para cobro en mostrador
+                        </p>
+                    </div>
                 </div>
             )}
         </div>
