@@ -17,10 +17,10 @@ export const CalculadoraCotizaciones = () => {
             try {
                 const { data, error } = await clienteSupabase.from('tarifasImpresion').select('*');
                 if (error) throw error;
-                const tarifasMapeadas = data.reduce((acc, t) => ({ ...acc, [t.tipoImpresion]: t }), {});
+                const tarifasMapeadas = data.reduce((acumulador, tarifa) => ({ ...acumulador, [tarifa.tipoImpresion]: tarifa }), {});
                 setTarifas(tarifasMapeadas);
-            } catch (e) {
-                console.error("error:", e);
+            } catch (error) {
+                console.error("error:", error);
             } finally {
                 setCargandoTarifas(false);
             }
@@ -31,10 +31,12 @@ export const CalculadoraCotizaciones = () => {
     const realizarCalculos = (archivos, tablaTarifas) => {
         let acumuladoMayorista = 0;
         const agrupacionPorVolumen = {};
+        let totalPaginasGlobal = 0;
 
         archivos.forEach(archivo => {
             const cantidad = parseInt(archivo.paginas) || 0;
             if (cantidad > 0) {
+                totalPaginasGlobal += cantidad;
                 const claveGrupo = `${archivo.tipoServicio}-${archivo.esDobleFaz}`;
                 agrupacionPorVolumen[claveGrupo] = (agrupacionPorVolumen[claveGrupo] || 0) + cantidad;
             }
@@ -51,10 +53,10 @@ export const CalculadoraCotizaciones = () => {
 
             if (!escala) return null;
 
-            const obtenerCostoUnitario = (cant) => {
-                if (cant <= 50) return escala.precioHasta50;
-                if (cant <= 100) return escala.precioHasta100;
-                if (cant <= 200) return escala.precioHasta200;
+            const obtenerCostoUnitario = (cantidadAEstimar) => {
+                if (cantidadAEstimar <= 50) return escala.precioHasta50;
+                if (cantidadAEstimar <= 100) return escala.precioHasta100;
+                if (cantidadAEstimar <= 200) return escala.precioHasta200;
                 return escala.precioMasDe200;
             };
 
@@ -80,7 +82,8 @@ export const CalculadoraCotizaciones = () => {
         return {
             detalles: detallesPorArchivo,
             totalSinRedondear: acumuladoMayorista,
-            totalRedondeado: Math.ceil(acumuladoMayorista / 100) * 100
+            totalRedondeado: Math.ceil(acumuladoMayorista / 100) * 100,
+            totalPaginas: totalPaginasGlobal
         };
     };
 
@@ -116,137 +119,205 @@ export const CalculadoraCotizaciones = () => {
         setResultadoManual(realizarCalculos(listaArchivos, tarifas));
     };
 
-    if (cargandoTarifas) return <div className="p-10 text-center font-bold text-empresa animate-pulse">CARGANDO TARIFAS...</div>;
+    if (cargandoTarifas) return (
+        <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-empresa"></div>
+        </div>
+    );
 
     return (
-        <div className="p-6 max-w-6xl mx-auto bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 transition-colors duration-300">
+        <div className="max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-6 xl:gap-10 items-start transition-all duration-500 justify-center">
 
-            <div className="flex flex-col md:flex-row justify-between items-center mb-6 border-b dark:border-gray-700 pb-4 gap-4">
-                <h2 className="text-2xl font-black text-gray-800 dark:text-gray-100 uppercase tracking-tight">Cotización de Pedidos</h2>
+            {/* Columna Izquierda: Área de Trabajo fluida */}
+            <div className="flex-1 min-w-fit flex flex-col gap-6">
 
-                <div className="flex items-center bg-gray-100 dark:bg-gray-700 p-1 rounded-xl border border-gray-200 dark:border-gray-600">
-                    <button
-                        onClick={() => setModoAutomatico(false)}
-                        className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${!modoAutomatico ? 'bg-white dark:bg-gray-600 shadow-sm text-empresa' : 'text-gray-500 dark:text-gray-400'}`}
-                    >
-                        MODO MANUAL
-                    </button>
-                    <button
-                        onClick={() => { setModoAutomatico(true); setResultadoManual(null); }}
-                        className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${modoAutomatico ? 'bg-white dark:bg-gray-600 shadow-sm text-green-500' : 'text-gray-500 dark:text-gray-400'}`}
-                    >
-                        AUTO (EN VIVO)
-                    </button>
-                </div>
-            </div>
+                {/* Cabecera y Controles */}
+                <div className="bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row justify-between items-center gap-4">
+                    <div>
+                        <h2 className="text-2xl font-black text-gray-800 dark:text-white tracking-tight">Archivos a Imprimir</h2>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Configure cada documento individualmente</p>
+                    </div>
 
-            <div className="space-y-4 mb-8">
-                {listaArchivos.map((archivo, indice) => {
-                    const detalleArchivo = datosEnPantalla?.detalles[indice];
-
-                    return (
-                        <div key={archivo.id} className="grid grid-cols-1 md:grid-cols-6 gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600 items-center">
-
-                            <div className="md:col-span-1">
-                                <label className="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase mb-1">PDF {indice + 1}</label>
-                                <input
-                                    type="number"
-                                    className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md font-bold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 outline-none focus:ring-2 focus:ring-empresa transition-colors"
-                                    value={archivo.paginas}
-                                    onChange={(e) => manejarCambioArchivo(archivo.id, 'paginas', e.target.value)}
-                                    placeholder="0"
-                                />
-                            </div>
-
-                            <div className="md:col-span-1">
-                                <label className="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase mb-1">Tipo</label>
-                                <select
-                                    className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded shadow-sm bg-white dark:bg-gray-800 text-sm font-semibold text-gray-700 dark:text-gray-200"
-                                    value={archivo.tipoServicio}
-                                    onChange={(e) => manejarCambioArchivo(archivo.id, 'tipoServicio', e.target.value)}
-                                >
-                                    <option value="a4Color">A4 Color</option>
-                                    <option value="a4BlancoYNegro">A4 B/N</option>
-                                </select>
-                            </div>
-
-                            <div className="flex flex-col space-y-2 pt-1 md:col-span-1">
-                                <label className="flex items-center space-x-2 text-xs text-gray-600 dark:text-gray-400 cursor-pointer hover:text-empresa transition-colors">
-                                    <input type="checkbox" className="rounded text-empresa focus:ring-empresa bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600" checked={archivo.esDobleFaz} onChange={(e) => manejarCambioArchivo(archivo.id, 'esDobleFaz', e.target.checked)} />
-                                    <span className="font-bold">Doble Faz</span>
-                                </label>
-                                <label className="flex items-center space-x-2 text-xs text-gray-600 dark:text-gray-400 cursor-pointer hover:text-empresa transition-colors">
-                                    <input type="checkbox" className="rounded text-empresa focus:ring-empresa bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600" checked={archivo.anillado} onChange={(e) => manejarCambioArchivo(archivo.id, 'anillado', e.target.checked)} />
-                                    <span className="font-bold">Anillado</span>
-                                </label>
-                            </div>
-
-                            <div className="md:col-span-3 flex justify-end">
-                                {detalleArchivo ? (
-                                    <div className="bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-600 shadow-sm w-full max-w-sm">
-                                        <div className="space-y-1 border-b dark:border-gray-700 pb-2 mb-2">
-                                            <div className="flex justify-between text-[11px] text-gray-500 dark:text-gray-400 font-medium">
-                                                <span>Impresiones ({archivo.paginas} x ${detalleArchivo.precioUnitarioMayorista})</span>
-                                                <span className="dark:text-gray-200">${detalleArchivo.subtotalImpresion.toLocaleString('es-AR')}</span>
-                                            </div>
-                                            {archivo.anillado && (
-                                                <div className="flex justify-between text-[11px] text-empresa font-black">
-                                                    <span>Anillado</span>
-                                                    <span>+ $1.500</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className="flex justify-between items-center">
-                                            <div className="text-left">
-                                                <p className="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase">Lista</p>
-                                                <p className="text-xs font-bold text-gray-400 dark:text-gray-500 line-through">${detalleArchivo.totalMinorista.toLocaleString('es-AR')}</p>
-                                            </div>
-                                            <div className="text-right">
-                                                <p className="text-[9px] font-bold text-green-500 uppercase italic">Subtotal</p>
-                                                <p className="text-xl font-black text-green-700 dark:text-green-400 leading-none">${detalleArchivo.totalMayorista.toLocaleString('es-AR')}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="text-gray-300 dark:text-gray-600 italic text-xs border border-dashed border-gray-200 dark:border-gray-700 rounded-lg p-4 w-full text-center">
-                                        {archivo.paginas !== '' && !modoAutomatico ? 'Presione calcular' : 'Esperando datos'}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
-
-            {!modoAutomatico && (
-                <button
-                    onClick={procesarCalculoManual}
-                    className="w-full bg-empresa hover:opacity-90 text-white font-black py-4 rounded-2xl shadow-xl transition-all text-lg uppercase mb-4"
-                >
-                    Calcular Presupuesto Final
-                </button>
-            )}
-
-            {datosEnPantalla?.totalRedondeado > 0 && (
-                <div className="p-8 bg-gradient-to-br from-empresa to-[#D12E9E] rounded-3xl text-center shadow-2xl text-white relative overflow-hidden transition-all duration-500">
-                    <p className="text-white/80 font-bold uppercase tracking-widest text-xs mb-3">Total de la Orden</p>
-                    <div className="flex flex-col items-center justify-center">
-                        {datosEnPantalla.totalSinRedondear !== datosEnPantalla.totalRedondeado && (
-                            <p className="text-lg text-white/60 line-through font-medium mb-1">
-                                Exacto: ${datosEnPantalla.totalSinRedondear.toLocaleString('es-AR')}
-                            </p>
-                        )}
-                        <div className="bg-white/20 px-10 py-4 rounded-2xl backdrop-blur-md border border-white/30">
-                            <p className="text-7xl font-black tracking-tighter">
-                                ${datosEnPantalla.totalRedondeado.toLocaleString('es-AR')}
-                            </p>
-                        </div>
-                        <p className="text-[10px] text-white/90 font-bold mt-4 uppercase tracking-[0.2em]">
-                            * Redondeado a cientos
-                        </p>
+                    <div className="flex p-1 bg-gray-100 dark:bg-gray-900 rounded-2xl flex-shrink-0">
+                        <button
+                            onClick={() => setModoAutomatico(false)}
+                            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all duration-300 ${!modoAutomatico ? 'bg-white dark:bg-gray-800 shadow-md text-gray-800 dark:text-white' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
+                        >
+                            MODO MANUAL
+                        </button>
+                        <button
+                            onClick={() => { setModoAutomatico(true); setResultadoManual(null); }}
+                            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all duration-300 ${modoAutomatico ? 'bg-white dark:bg-gray-800 shadow-md text-empresa' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700'}`}
+                        >
+                            AUTO (EN VIVO)
+                        </button>
                     </div>
                 </div>
-            )}
+
+                {/* Lista de Archivos */}
+                <div className="space-y-4 mb-24 lg:mb-8">
+                    {listaArchivos.map((archivo, indice) => {
+                        const detalleArchivo = datosEnPantalla?.detalles[indice];
+                        const estaVacio = archivo.paginas === '';
+
+                        return (
+                            <div key={archivo.id} className={`bg-white dark:bg-gray-800 p-5 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 transition-all duration-300 hover:shadow-md hover:border-empresa/30 grid grid-cols-1 md:grid-cols-12 gap-5 lg:gap-4 items-center ${estaVacio ? 'opacity-60 hover:opacity-100' : ''}`}>
+
+                                {/* Inputs (Páginas y Formato = 4/12) */}
+                                <div className="md:col-span-4 grid grid-cols-2 gap-4">
+                                    <div className="col-span-1 relative">
+                                        <label className="text-[10px] font-bold text-gray-400 uppercase absolute -top-2 left-3 bg-white dark:bg-gray-800 px-1 z-10">Páginas</label>
+                                        <input
+                                            type="number"
+                                            className="w-full h-12 px-3 bg-transparent border border-gray-200 dark:border-gray-600 rounded-2xl font-bold text-lg text-gray-800 dark:text-white outline-none focus:border-empresa focus:ring-1 focus:ring-empresa transition-all text-center relative"
+                                            value={archivo.paginas}
+                                            onChange={(evento) => manejarCambioArchivo(archivo.id, 'paginas', evento.target.value)}
+                                            placeholder="0"
+                                        />
+                                    </div>
+
+                                    <div className="col-span-1 relative">
+                                        <label className="text-[10px] font-bold text-gray-400 uppercase absolute -top-2 left-3 bg-white dark:bg-gray-800 px-1 z-10">Formato</label>
+                                        <select
+                                            className="w-full h-12 px-3 bg-transparent border border-gray-200 dark:border-gray-600 rounded-2xl font-semibold text-gray-700 dark:text-gray-200 outline-none focus:border-empresa focus:ring-1 focus:ring-empresa appearance-none relative text-sm"
+                                            value={archivo.tipoServicio}
+                                            onChange={(evento) => manejarCambioArchivo(archivo.id, 'tipoServicio', evento.target.value)}
+                                        >
+                                            <option value="a4Color">A4 Color</option>
+                                            <option value="a4BlancoYNegro">A4 B/N</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                {/* Toggles (Checkboxes) (3/12) */}
+                                <div className="md:col-span-3 flex gap-2 h-12">
+                                    <label className={`flex-1 flex flex-col xl:flex-row items-center justify-center px-1 xl:px-2 rounded-2xl border cursor-pointer transition-all h-full ${archivo.esDobleFaz ? 'bg-empresa/10 border-empresa text-empresa' : 'bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-500'}`}>
+                                        <input type="checkbox" className="hidden" checked={archivo.esDobleFaz} onChange={(evento) => manejarCambioArchivo(archivo.id, 'esDobleFaz', evento.target.checked)} />
+                                        <span className="text-[10px] xl:text-xs font-bold uppercase tracking-wide text-center">Doble Faz</span>
+                                    </label>
+                                    <label className={`flex-1 flex flex-col xl:flex-row items-center justify-center px-1 xl:px-2 rounded-2xl border cursor-pointer transition-all h-full ${archivo.anillado ? 'bg-empresa/10 border-empresa text-empresa' : 'bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-500'}`}>
+                                        <input type="checkbox" className="hidden" checked={archivo.anillado} onChange={(evento) => manejarCambioArchivo(archivo.id, 'anillado', evento.target.checked)} />
+                                        <span className="text-[10px] xl:text-xs font-bold uppercase tracking-wide text-center">Anillado</span>
+                                    </label>
+                                </div>
+
+                                {/* Detalle del Archivo "El Ticket" (5/12) */}
+                                <div className="md:col-span-5 w-full">
+                                    {detalleArchivo ? (
+                                        <div className="bg-gray-50 dark:bg-gray-900/40 p-3 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm w-full">
+
+                                            {/* Desglose Superior */}
+                                            <div className="space-y-1 border-b border-gray-200 dark:border-gray-700 pb-2 mb-2">
+                                                <div className="flex justify-between text-[11px] text-gray-500 dark:text-gray-400 font-medium">
+                                                    <span>Impresiones ({archivo.paginas} x ${detalleArchivo.precioUnitarioMayorista})</span>
+                                                    <span className="dark:text-gray-200">${detalleArchivo.subtotalImpresion.toLocaleString('es-AR')}</span>
+                                                </div>
+                                                {archivo.anillado && (
+                                                    <div className="flex justify-between text-[11px] text-empresa font-black">
+                                                        <span>Anillado</span>
+                                                        <span>+ $1.500</span>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Totales Inferiores */}
+                                            <div className="flex justify-between items-center">
+                                                <div className="text-left">
+                                                    <p className="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase">Lista</p>
+                                                    <p className="text-xs font-bold text-gray-400 dark:text-gray-500 line-through">
+                                                        ${detalleArchivo.totalMinorista.toLocaleString('es-AR')}
+                                                    </p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-[9px] font-bold text-green-500 uppercase italic">Subtotal</p>
+                                                    <p className="text-xl font-black text-green-700 dark:text-green-400 leading-none">
+                                                        ${detalleArchivo.totalMayorista.toLocaleString('es-AR')}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                        </div>
+                                    ) : (
+                                        <div className="text-gray-300 dark:text-gray-600 italic text-xs border border-dashed border-gray-200 dark:border-gray-700 rounded-2xl p-4 w-full h-full text-center flex items-center justify-center">
+                                            {estaVacio ? 'Nuevo PDF' : (!modoAutomatico ? 'Presione actualizar precios' : 'Esperando datos')}
+                                        </div>
+                                    )}
+                                </div>
+
+                            </div>
+                        );
+                    })}
+
+                    {/* Botón manual integrado al final de la lista */}
+                    {!modoAutomatico && (
+                        <button
+                            onClick={procesarCalculoManual}
+                            className="w-full bg-gray-900 dark:bg-gray-700 hover:bg-black dark:hover:bg-gray-600 text-white font-black py-5 rounded-3xl shadow-lg transition-all text-lg uppercase tracking-widest mt-4"
+                        >
+                            Actualizar Precios
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {/* Columna Derecha: Tarjeta de Resumen */}
+            <div className="w-full lg:w-[340px] xl:w-[400px] flex-shrink-0 sticky bottom-4 lg:top-8 z-50">
+                <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.08)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.3)] border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col">
+
+                    <div className="p-6 md:p-8">
+                        <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-6 flex items-center gap-2">
+                            <svg className="w-5 h-5 text-empresa" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                            Resumen de Orden
+                        </h3>
+
+                        {/* Desglose de información */}
+                        <div className="space-y-4 mb-6">
+                            <div className="flex justify-between items-center text-sm">
+                                <span className="text-gray-500 dark:text-gray-400 font-medium">Total de Archivos</span>
+                                <span className="text-gray-800 dark:text-white font-bold">{listaArchivos.filter(a => a.paginas !== '').length}</span>
+                            </div>
+
+                            {datosEnPantalla?.totalPaginas > 0 && (
+                                <div className="flex justify-between items-center text-sm">
+                                    <span className="text-gray-500 dark:text-gray-400 font-medium">Total de Páginas</span>
+                                    <span className="text-gray-800 dark:text-white font-bold">{datosEnPantalla.totalPaginas}</span>
+                                </div>
+                            )}
+
+                            {datosEnPantalla && datosEnPantalla.totalSinRedondear !== datosEnPantalla.totalRedondeado && (
+                                <div className="flex justify-between items-center text-sm pt-4 border-t border-gray-100 dark:border-gray-700">
+                                    <span className="text-gray-500 dark:text-gray-400 font-medium">Subtotal exacto</span>
+                                    <span className="text-gray-500 dark:text-gray-400 line-through whitespace-nowrap">${datosEnPantalla.totalSinRedondear.toLocaleString('es-AR')}</span>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Bloque gigante del Total */}
+                        <div className="bg-gradient-to-br from-empresa to-[#D12E9E] p-6 rounded-2xl text-white text-center shadow-inner relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 p-4 opacity-10 transform group-hover:scale-110 transition-transform duration-500">
+                                <svg className="w-24 h-24 -mr-6 -mt-6" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" /><path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd" /></svg>
+                            </div>
+
+                            <span className="text-[10px] uppercase tracking-[0.2em] font-bold opacity-90 block mb-2 whitespace-nowrap">Total a Cobrar</span>
+
+                            <div className="flex justify-center items-baseline gap-1">
+                                <span className="text-3xl font-bold opacity-80">$</span>
+                                <span className="text-5xl lg:text-5xl xl:text-6xl font-black tracking-tighter whitespace-nowrap overflow-hidden text-ellipsis">
+                                    {datosEnPantalla?.totalRedondeado ? datosEnPantalla.totalRedondeado.toLocaleString('es-AR') : '0'}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Aviso de interfaz */}
+                        {datosEnPantalla?.totalRedondeado > 0 && (
+                            <p className="text-center text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-widest mt-4">
+                                Listo para procesar
+                            </p>
+                        )}
+                    </div>
+                </div>
+            </div>
+
         </div>
     );
 };
