@@ -1,12 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
 import { clienteSupabase } from '../servicios/clienteSupabase';
-import { FilaArchivo } from './FilaArchivo';     // IMPORTAMOS EL COMPONENTE
-import { ResumenOrden } from './ResumenOrden';   // IMPORTAMOS EL COMPONENTE
+import { FilaArchivo } from './FilaArchivo';
+import { ResumenOrden } from './ResumenOrden';
 
 export const CalculadoraCotizaciones = () => {
     const [tarifas, setTarifas] = useState({});
     const [cargandoTarifas, setCargandoTarifas] = useState(true);
-    
+
     const [modoAutomatico, setModoAutomatico] = useState(() => {
         const modoGuardado = window.localStorage.getItem('preferenciaModoAutomatico');
         if (modoGuardado !== null) {
@@ -44,7 +44,7 @@ export const CalculadoraCotizaciones = () => {
     const realizarCalculos = (archivos, tablaTarifas) => {
         let acumuladoMayorista = 0;
         const agrupacionPorVolumen = {};
-        
+
         const resumenDetallado = {
             cantidadArchivosImpresos: 0,
             cantidadAnillados: 0,
@@ -58,10 +58,10 @@ export const CalculadoraCotizaciones = () => {
 
         archivos.forEach(archivo => {
             const cantidad = parseInt(archivo.paginas) || 0;
-            
+
             if (cantidad > 0) {
                 resumenDetallado.cantidadArchivosImpresos++;
-                
+
                 const claveGrupo = `${archivo.tipoServicio}-${archivo.esDobleFaz}`;
                 agrupacionPorVolumen[claveGrupo] = (agrupacionPorVolumen[claveGrupo] || 0) + cantidad;
 
@@ -106,7 +106,7 @@ export const CalculadoraCotizaciones = () => {
 
                     const costoUnitarioMinorista = obtenerCostoUnitario(cantidad);
                     precioUnitarioMayorista = obtenerCostoUnitario(totalPaginasDelGrupo);
-                    
+
                     subtotalImpresionMinorista = cantidad * costoUnitarioMinorista;
                     subtotalImpresionMayorista = cantidad * precioUnitarioMayorista;
                 }
@@ -171,6 +171,29 @@ export const CalculadoraCotizaciones = () => {
         });
     };
 
+    // --- NUEVA FUNCIÓN PARA LIMPIAR LA FILA ---
+    const resetearArchivo = (id) => {
+        if (!modoAutomatico) setResultadoManual(null);
+
+        setListaArchivos(listaActual => {
+            const nuevaLista = listaActual.map(archivo =>
+                archivo.id === id
+                    ? { ...archivo, paginas: '', tipoServicio: 'a4Color', esDobleFaz: false, anillado: false }
+                    : archivo
+            );
+
+            // Evitamos que queden filas vacías de más al final
+            while (
+                nuevaLista.length > 1 &&
+                nuevaLista[nuevaLista.length - 2].paginas === '' && !nuevaLista[nuevaLista.length - 2].anillado &&
+                nuevaLista[nuevaLista.length - 1].paginas === '' && !nuevaLista[nuevaLista.length - 1].anillado
+            ) {
+                nuevaLista.pop();
+            }
+            return nuevaLista;
+        });
+    };
+
     const procesarCalculoManual = () => {
         setResultadoManual(realizarCalculos(listaArchivos, tarifas));
     };
@@ -184,10 +207,8 @@ export const CalculadoraCotizaciones = () => {
     return (
         <div className="max-w-[1400px] mx-auto flex flex-col lg:flex-row gap-6 xl:gap-10 items-start transition-all duration-500 justify-center pb-20">
 
-            {/* Columna Izquierda (Área de Trabajo) */}
             <div className="flex-1 min-w-fit flex flex-col gap-6">
-                
-                {/* Cabecera y Controles */}
+
                 <div className="bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row justify-between items-center gap-4">
                     <div>
                         <h2 className="text-2xl font-black text-gray-800 dark:text-white tracking-tight">Archivos a Imprimir</h2>
@@ -199,29 +220,28 @@ export const CalculadoraCotizaciones = () => {
                     </div>
                 </div>
 
-                {/* Lista Iterada de Archivos */}
                 <div className="space-y-4 mb-8">
                     {listaArchivos.map((archivo, indice) => (
-                        <FilaArchivo 
-                            key={archivo.id} 
+                        <FilaArchivo
+                            key={archivo.id}
                             archivo={archivo}
                             indice={indice}
                             detalleArchivo={datosEnPantalla?.detalles[indice]}
                             modoAutomatico={modoAutomatico}
                             manejarCambioArchivo={manejarCambioArchivo}
+                            resetearArchivo={resetearArchivo} // Pasamos la función como prop
                         />
                     ))}
-                    
+
                     {!modoAutomatico && (
                         <button onClick={procesarCalculoManual} className="w-full bg-gray-900 dark:bg-gray-700 text-white font-black py-5 rounded-3xl shadow-lg transition-all text-lg uppercase tracking-widest mt-4">Actualizar Precios</button>
                     )}
                 </div>
             </div>
 
-            {/* Sidebar Importado */}
-            <ResumenOrden 
-                datosEnPantalla={datosEnPantalla} 
-                listaArchivos={listaArchivos} 
+            <ResumenOrden
+                datosEnPantalla={datosEnPantalla}
+                listaArchivos={listaArchivos}
             />
 
         </div>
