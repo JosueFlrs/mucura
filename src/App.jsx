@@ -2,14 +2,24 @@ import { useState, useEffect } from 'react'
 import { CalculadoraCotizaciones } from './componentes/calculadoraCotizaciones'
 
 function App() {
-  const [temaOscuro, setTemaOscuro] = useState(false);
+  // 1. Iniciamos el estado leyendo el localStorage
+  const [temaOscuro, setTemaOscuro] = useState(() => {
+    const temaGuardado = window.localStorage.getItem('preferenciaTemaOscuro');
+    // Si hay algo guardado, lo usamos. Si no, arranca en false (claro).
+    if (temaGuardado !== null) {
+      return JSON.parse(temaGuardado);
+    }
+    return false; 
+  });
 
-  // Efecto para aplicar la clase 'dark' al elemento raíz
+  // 2. Cada vez que cambia el tema, actualizamos el HTML y guardamos en localStorage
   useEffect(() => {
     if (temaOscuro) {
       document.documentElement.classList.add('dark');
+      window.localStorage.setItem('preferenciaTemaOscuro', 'true');
     } else {
       document.documentElement.classList.remove('dark');
+      window.localStorage.setItem('preferenciaTemaOscuro', 'false');
     }
   }, [temaOscuro]);
 
