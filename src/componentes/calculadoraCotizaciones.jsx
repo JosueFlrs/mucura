@@ -31,7 +31,7 @@ export const CalculadoraCotizaciones = () => {
                 const tarifasMapeadas = data.reduce((acumulador, tarifa) => ({ ...acumulador, [tarifa.tipoImpresion]: tarifa }), {});
                 setTarifas(tarifasMapeadas);
             } catch (error) {
-                console.error("error:", error);
+                console.error("error al obtener tarifas:", error);
             } finally {
                 setCargandoTarifas(false);
             }
@@ -43,7 +43,6 @@ export const CalculadoraCotizaciones = () => {
         let acumuladoMayorista = 0;
         const agrupacionPorVolumen = {};
         
-        // Objeto para clasificar detalladamente todo el pedido
         const resumenDetallado = {
             cantidadArchivosImpresos: 0,
             cantidadAnillados: 0,
@@ -61,11 +60,9 @@ export const CalculadoraCotizaciones = () => {
             if (cantidad > 0) {
                 resumenDetallado.cantidadArchivosImpresos++;
                 
-                // Agrupamos para calcular el descuento mayorista
                 const claveGrupo = `${archivo.tipoServicio}-${archivo.esDobleFaz}`;
                 agrupacionPorVolumen[claveGrupo] = (agrupacionPorVolumen[claveGrupo] || 0) + cantidad;
 
-                // Clasificamos las páginas para el resumen visual
                 if (archivo.tipoServicio === 'a4Color') {
                     if (archivo.esDobleFaz) resumenDetallado.paginas.a4ColorDobleFaz += cantidad;
                     else resumenDetallado.paginas.a4ColorSimple += cantidad;
@@ -98,10 +95,10 @@ export const CalculadoraCotizaciones = () => {
                     const claveGrupo = `${archivo.tipoServicio}-${archivo.esDobleFaz}`;
                     const totalPaginasDelGrupo = agrupacionPorVolumen[claveGrupo];
 
-                    const obtenerCostoUnitario = (cant) => {
-                        if (cant <= 50) return escala.precioHasta50;
-                        if (cant <= 100) return escala.precioHasta100;
-                        if (cant <= 200) return escala.precioHasta200;
+                    const obtenerCostoUnitario = (cantidadAEstimar) => {
+                        if (cantidadAEstimar <= 50) return escala.precioHasta50;
+                        if (cantidadAEstimar <= 100) return escala.precioHasta100;
+                        if (cantidadAEstimar <= 200) return escala.precioHasta200;
                         return escala.precioMasDe200;
                     };
 
@@ -131,8 +128,7 @@ export const CalculadoraCotizaciones = () => {
         return {
             detalles: detallesPorArchivo,
             resumen: resumenDetallado,
-            totalSinRedondear: acumuladoMayorista,
-            totalRedondeado: Math.ceil(acumuladoMayorista / 100) * 100
+            totalSinRedondear: acumuladoMayorista
         };
     };
 
@@ -141,6 +137,18 @@ export const CalculadoraCotizaciones = () => {
     }, [listaArchivos, tarifas]);
 
     const datosEnPantalla = modoAutomatico ? resultadoAutomatico : resultadoManual;
+
+    // --- CÁLCULOS DE LOS DOS PRECIOS ---
+    const totalBase = datosEnPantalla?.totalSinRedondear || 0;
+    
+    // Digital
+    const totalDigitalExacto = totalBase;
+    const totalDigitalRedondeado = Math.ceil(totalDigitalExacto / 100) * 100;
+    
+    // Efectivo
+    const montoDescuentoEfectivo = totalBase * 0.13;
+    const totalEfectivoExacto = totalBase - montoDescuentoEfectivo;
+    const totalEfectivoRedondeado = Math.ceil(totalEfectivoExacto / 100) * 100;
 
     const manejarCambioArchivo = (id, campo, valor) => {
         if (!modoAutomatico) setResultadoManual(null);
@@ -294,15 +302,12 @@ export const CalculadoraCotizaciones = () => {
                 <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col p-6 md:p-8">
                     <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-6 flex items-center gap-2">
                         <svg className="w-5 h-5 text-empresa" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                        Resumen de Orden
+                        Comanda de Producción
                     </h3>
 
-                    {/* DESGLOSE DETALLADO */}
                     <div className="space-y-3 mb-6 flex-grow">
-                        
                         {datosEnPantalla ? (
                             <>
-                                {/* Cantidad de Items y Anillados */}
                                 {datosEnPantalla.resumen.cantidadArchivosImpresos > 0 && (
                                     <div className="flex justify-between items-center text-sm">
                                         <span className="text-gray-500 dark:text-gray-400">PDFs a Imprimir</span>
@@ -316,7 +321,6 @@ export const CalculadoraCotizaciones = () => {
                                     </div>
                                 )}
 
-                                {/* Detalle específico de tipos de páginas (Solo muestra los que tienen > 0) */}
                                 {(datosEnPantalla.resumen.paginas.a4ColorSimple > 0 || datosEnPantalla.resumen.paginas.a4ColorDobleFaz > 0 || datosEnPantalla.resumen.paginas.a4BlancoYNegroSimple > 0 || datosEnPantalla.resumen.paginas.a4BlancoYNegroDobleFaz > 0) && (
                                     <div className="mt-4 pt-4 border-t border-dashed border-gray-200 dark:border-gray-700">
                                         <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-3">Detalle de Páginas</p>
@@ -347,33 +351,65 @@ export const CalculadoraCotizaciones = () => {
                                         )}
                                     </div>
                                 )}
-                                
-                                {/* Total Exacto (Monto) */}
-                                {datosEnPantalla.totalSinRedondear !== datosEnPantalla.totalRedondeado && (
-                                    <div className="flex justify-between items-center text-sm pt-4 border-t border-gray-100 dark:border-gray-700 mt-4">
-                                        <span className="text-gray-500 dark:text-gray-400">Subtotal exacto</span>
-                                        <span className="text-gray-400 line-through">${datosEnPantalla.totalSinRedondear.toLocaleString('es-AR')}</span>
-                                    </div>
-                                )}
                             </>
                         ) : (
                             <div className="text-center py-6 text-gray-400 dark:text-gray-500 text-sm italic">
                                 Esperando datos para procesar el resumen...
                             </div>
                         )}
-
                     </div>
 
-                    {/* Bloque Gigante de Cobro */}
-                    <div className="bg-gradient-to-br from-empresa to-[#D12E9E] p-6 rounded-2xl text-white text-center shadow-inner relative overflow-hidden group mt-auto">
-                        <span className="text-[10px] uppercase tracking-widest font-bold opacity-90 block mb-2">Total a Cobrar</span>
-                        <div className="flex justify-center items-baseline gap-1">
-                            <span className="text-3xl font-bold opacity-80">$</span>
-                            <span className="text-5xl lg:text-6xl font-black tracking-tighter">
-                                {datosEnPantalla?.totalRedondeado ? datosEnPantalla.totalRedondeado.toLocaleString('es-AR') : '0'}
-                            </span>
+                    {/* SECCIÓN DE COBRO DUAL */}
+                    <div className="mt-auto pt-5 border-t border-gray-100 dark:border-gray-700">
+                        <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-3">Opciones de Pago</p>
+                        
+                        {/* Tarjeta Digital / Débito */}
+                        <div className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-4 rounded-2xl mb-3 flex justify-between items-center">
+                            <div>
+                                <span className="text-xs font-bold text-gray-600 dark:text-gray-300 block">Transferencia / Débito</span>
+                                {totalDigitalExacto !== totalDigitalRedondeado && (
+                                    <span className="text-[10px] text-gray-400 line-through">Exacto: ${totalDigitalExacto.toLocaleString('es-AR')}</span>
+                                )}
+                            </div>
+                            <div className="text-right">
+                                <span className="text-2xl font-black text-empresa">${totalBase > 0 ? totalDigitalRedondeado.toLocaleString('es-AR') : '0'}</span>
+                            </div>
                         </div>
+
+                        {/* Tarjeta Efectivo */}
+                        <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-5 rounded-2xl text-white shadow-lg relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 p-4 opacity-10 transform group-hover:scale-110 transition-transform duration-500">
+                                <svg className="w-24 h-24 -mr-6 -mt-6" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" /><path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd" /></svg>
+                            </div>
+                            
+                            <div className="flex justify-between items-start relative z-10 mb-2">
+                                <span className="text-[11px] uppercase tracking-widest font-bold opacity-90">Efectivo (-13%)</span>
+                                {montoDescuentoEfectivo > 0 && (
+                                    <span className="text-[15px] bg-white/20 px-2 py-1 rounded-lg font-bold backdrop-blur-sm">
+                                        Ahorro: ${Math.round(montoDescuentoEfectivo).toLocaleString('es-AR')}
+                                    </span>
+                                )}
+                            </div>
+                            
+                            <div className="flex justify-between items-end relative z-10 mt-2">
+                                <div className="pb-1">
+                                    {totalEfectivoExacto !== totalEfectivoRedondeado && (
+                                        <span className="text-[20px] line-through opacity-70 block">
+                                            ${totalEfectivoExacto.toLocaleString('es-AR')}
+                                        </span>
+                                    )}
+                                </div>
+                                <div className="flex items-baseline gap-1">
+                                    <span className="text-3xl font-bold opacity-80">$</span>
+                                    <span className="text-5xl lg:text-5xl xl:text-6xl font-black tracking-tighter overflow-hidden text-ellipsis">
+                                        {totalBase > 0 ? totalEfectivoRedondeado.toLocaleString('es-AR') : '0'}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <p className="text-center text-[9px] text-gray-400 dark:text-gray-500 uppercase tracking-widest mt-4 italic">Redondeo automático incluido</p>
                     </div>
+
                 </div>
             </div>
         </div>
