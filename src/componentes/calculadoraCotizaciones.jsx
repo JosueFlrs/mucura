@@ -4,28 +4,11 @@ import { FilaArchivo } from './FilaArchivo';
 import { ResumenOrden } from './ResumenOrden';
 import Swal from 'sweetalert2';
 
-export const PRECIOS_ESPECIALES = {
-    a4Cartulina: { escalas: [{max: Infinity, precio: 300}] },
-    a4Fotografico120: { escalas: [{max: Infinity, precio: 500}] },
-    a4Fotografico200: { escalas: [{max: Infinity, precio: 700}] },
-    a4Fotografico250: { escalas: [{max: Infinity, precio: 900}] },
-    a4FotoAdhesivo135: { escalas: [{max: Infinity, precio: 800}] },
-    sa3OppAdhesivo: { escalas: [{max: 1, precio: 3000}, {max: 5, precio: 2500}, {max: 10, precio: 2400}, {max: Infinity, precio: 2300}] },
-    a4OppAdhesivo: { escalas: [{max: 1, precio: 1500}, {max: 5, precio: 1250}, {max: 10, precio: 1200}, {max: Infinity, precio: 1150}] },
-    sa3Ilustracion115: { escalas: [{max: 1, precio: 1200}, {max: 5, precio: 1100}, {max: 10, precio: 1000}, {max: Infinity, precio: 900}] },
-    a4Ilustracion115: { escalas: [{max: 1, precio: 600}, {max: 5, precio: 550}, {max: 10, precio: 500}, {max: Infinity, precio: 450}] },
-    sa3Ilustracion200: { escalas: [{max: 1, precio: 1500}, {max: 5, precio: 1400}, {max: 10, precio: 1300}, {max: Infinity, precio: 1200}] },
-    a4Ilustracion200: { escalas: [{max: 1, precio: 750}, {max: 5, precio: 700}, {max: 10, precio: 650}, {max: Infinity, precio: 600}] },
-    sa3Ilustracion300: { escalas: [{max: 1, precio: 2500}, {max: 5, precio: 2000}, {max: 10, precio: 1900}, {max: Infinity, precio: 1800}] },
-    a4Ilustracion300: { escalas: [{max: 1, precio: 1250}, {max: 5, precio: 1000}, {max: 10, precio: 950}, {max: Infinity, precio: 900}] },
-    sa3IlustracionAdhesivo: { escalas: [{max: 1, precio: 2500}, {max: 5, precio: 2000}, {max: 10, precio: 1900}, {max: Infinity, precio: 1800}] },
-    a4IlustracionAdhesivo: { escalas: [{max: 1, precio: 1250}, {max: 5, precio: 1000}, {max: 10, precio: 950}, {max: Infinity, precio: 900}] },
-    a4ObraColor: { escalas: [{max: 1, precio: 500}, {max: 5, precio: 450}, {max: 10, precio: 400}, {max: Infinity, precio: 350}] },
-    a3ObraColor: { escalas: [{max: 1, precio: 1000}, {max: 5, precio: 900}, {max: 10, precio: 800}, {max: Infinity, precio: 700}] }
-};
-
 export const SIN_DOBLE_FAZ = ['a4Fotografico120', 'a4Fotografico200', 'a4Fotografico250', 'a4FotoAdhesivo135', 'sa3OppAdhesivo', 'a4OppAdhesivo', 'sa3IlustracionAdhesivo', 'a4IlustracionAdhesivo'];
 export const CON_ANILLADO = ['a4Color', 'a4BlancoYNegro', 'a4ObraColor'];
+
+// NUEVA CONSTANTE: Le avisa a la matemática qué papeles saltan a los 1, 5 y 10.
+export const USA_ESCALA_BAJA = ['a4ObraColor', 'a3ObraColor', 'a4Ilustracion115', 'sa3Ilustracion115', 'a4Ilustracion200', 'sa3Ilustracion200', 'a4Ilustracion300', 'sa3Ilustracion300', 'a4OppAdhesivo', 'sa3OppAdhesivo', 'a4IlustracionAdhesivo', 'sa3IlustracionAdhesivo'];
 
 export const CalculadoraCotizaciones = () => {
     const [tarifas, setTarifas] = useState({});
@@ -88,39 +71,39 @@ export const CalculadoraCotizaciones = () => {
             if (cantidad > 0) {
                 const totalPaginasDelGrupo = agrupacionPorVolumen[`${archivo.tipoServicio}-${archivo.esDobleFaz}`];
 
-                if (PRECIOS_ESPECIALES[archivo.tipoServicio]) {
-                    const config = PRECIOS_ESPECIALES[archivo.tipoServicio];
-                    const obtenerCostoBase = (cant) => {
-                        for (let escala of config.escalas) if (cant <= escala.max) return escala.precio;
-                        return config.escalas[config.escalas.length - 1].precio;
+                let tarifaBase = tablaTarifas[archivo.tipoServicio];
+                let tarifaDobleFaz = tablaTarifas[archivo.tipoServicio + 'DobleFaz'];
+                let escalaUsar = (archivo.esDobleFaz && tarifaDobleFaz) ? tarifaDobleFaz : tarifaBase;
+
+                if (escalaUsar) {
+                    
+                    // CORRECCIÓN MATEMÁTICA: Discriminamos la lógica según el papel
+                    const obtenerCostoUnitario = (cant) => {
+                        if (USA_ESCALA_BAJA.includes(archivo.tipoServicio)) {
+                            // Salto de escalas especiales (1, 5, 10)
+                            if (cant <= 1) return escalaUsar.precioHasta50;
+                            if (cant <= 5) return escalaUsar.precioHasta100;
+                            if (cant <= 10) return escalaUsar.precioHasta200;
+                            return escalaUsar.precioMasDe200;
+                        } else {
+                            // Salto de escalas clásicas (50, 100, 200)
+                            if (cant <= 50) return escalaUsar.precioHasta50;
+                            if (cant <= 100) return escalaUsar.precioHasta100;
+                            if (cant <= 200) return escalaUsar.precioHasta200;
+                            return escalaUsar.precioMasDe200;
+                        }
                     };
 
-                    let unitarioMinorista = obtenerCostoBase(cantidad);
-                    precioUnitarioMayorista = obtenerCostoBase(totalPaginasDelGrupo);
+                    let unitarioMinorista = obtenerCostoUnitario(cantidad);
+                    precioUnitarioMayorista = obtenerCostoUnitario(totalPaginasDelGrupo);
 
-                    if (archivo.esDobleFaz) {
+                    if (archivo.esDobleFaz && !tarifaDobleFaz) {
                         unitarioMinorista *= 1.5;
                         precioUnitarioMayorista *= 1.5;
                     }
 
                     subtotalImpresionMinorista = cantidad * unitarioMinorista;
                     subtotalImpresionMayorista = cantidad * precioUnitarioMayorista;
-
-                } else {
-                    let claveTarifa = archivo.tipoServicio + (archivo.esDobleFaz ? 'DobleFaz' : '');
-                    const escala = tablaTarifas[claveTarifa];
-                    if (escala) {
-                        const obtenerCostoUnitario = (cant) => {
-                            if (cant <= 50) return escala.precioHasta50;
-                            if (cant <= 100) return escala.precioHasta100;
-                            if (cant <= 200) return escala.precioHasta200;
-                            return escala.precioMasDe200;
-                        };
-                        const costoUnitarioMinorista = obtenerCostoUnitario(cantidad);
-                        precioUnitarioMayorista = obtenerCostoUnitario(totalPaginasDelGrupo);
-                        subtotalImpresionMinorista = cantidad * costoUnitarioMinorista;
-                        subtotalImpresionMayorista = cantidad * precioUnitarioMayorista;
-                    }
                 }
             }
 
@@ -146,7 +129,6 @@ export const CalculadoraCotizaciones = () => {
     const resultadoAutomatico = useMemo(() => realizarCalculos(listaArchivos, tarifas, montoLibreria), [listaArchivos, tarifas, montoLibreria]);
     const datosEnPantalla = modoAutomatico ? resultadoAutomatico : resultadoManual;
 
-    // INTEGRACIÓN DE SWEETALERT2 PARA GUARDAR
     const guardarOrdenEnBaseDeDatos = async (metodoPago, totalCobrado) => {
         const esModoOscuro = document.documentElement.classList.contains('dark');
         
@@ -167,38 +149,19 @@ export const CalculadoraCotizaciones = () => {
             setResultadoManual(null);
             
             Swal.fire({
-                icon: 'success',
-                title: '¡Orden guardada!',
-                text: 'La comanda se registró exitosamente.',
-                toast: true,
-                position: 'bottom-end',
-                showConfirmButton: false,
-                timer: 3000,
-                timerProgressBar: true,
-                background: esModoOscuro ? '#1F2937' : '#ffffff',
-                color: esModoOscuro ? '#ffffff' : '#1F2937',
-                customClass: {
-                    popup: 'rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700',
-                    title: 'font-bold'
-                }
+                icon: 'success', title: '¡Orden guardada!', text: 'La comanda se registró exitosamente.',
+                toast: true, position: 'bottom-end', showConfirmButton: false, timer: 3000,
+                background: esModoOscuro ? '#1F2937' : '#ffffff', color: esModoOscuro ? '#ffffff' : '#1F2937',
+                customClass: { popup: 'rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700', title: 'font-bold' }
             });
             
         } catch (error) {
             console.error("Error al guardar la orden:", error);
             Swal.fire({
-                icon: 'error',
-                title: 'Error de conexión',
-                text: 'Hubo un problema al guardar la orden.',
-                toast: true,
-                position: 'bottom-end',
-                showConfirmButton: false,
-                timer: 4000,
-                background: esModoOscuro ? '#1F2937' : '#ffffff',
-                color: esModoOscuro ? '#ffffff' : '#1F2937',
-                customClass: {
-                    popup: 'rounded-2xl shadow-xl border border-red-100 dark:border-red-900',
-                    title: 'font-bold'
-                }
+                icon: 'error', title: 'Error de conexión', text: 'Hubo un problema al guardar la orden.',
+                toast: true, position: 'bottom-end', showConfirmButton: false, timer: 4000,
+                background: esModoOscuro ? '#1F2937' : '#ffffff', color: esModoOscuro ? '#ffffff' : '#1F2937',
+                customClass: { popup: 'rounded-2xl shadow-xl border border-red-100 dark:border-red-900', title: 'font-bold' }
             });
         }
     };
