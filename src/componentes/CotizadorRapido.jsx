@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { clienteSupabase } from '../servicios/clienteSupabase';
-import { PRECIOS_ESPECIALES, SIN_DOBLE_FAZ } from './CalculadoraCotizaciones';
+import { PRECIOS_ESPECIALES, SIN_DOBLE_FAZ, CON_ANILLADO } from './CalculadoraCotizaciones';
 
 export const CotizadorRapido = () => {
     const [tarifas, setTarifas] = useState({});
@@ -67,8 +67,8 @@ export const CotizadorRapido = () => {
     if (cargandoTarifas) return <div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-empresa"></div></div>;
 
     const permiteDobleFaz = !SIN_DOBLE_FAZ.includes(papelSeleccionado);
+    const permiteAnillado = CON_ANILLADO.includes(papelSeleccionado);
     
-    // Generamos las tarjetas de forma dinámica
     const escenarios = [];
     if (calcularEscenario(false)) {
         escenarios.push({ id: 1, subtitulo: "Simple Faz", datos: calcularEscenario(false), color: "bg-gray-800", textoColor: "text-gray-100" });
@@ -147,18 +147,22 @@ export const CotizadorRapido = () => {
                                         <span className="text-lg font-black text-green-600 dark:text-green-500">${escenario.datos?.efectivoSolo.toLocaleString('es-AR')}</span>
                                     </div>
                                 </div>
-                                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-800/30 relative">
-                                    <div className="absolute -top-2 -right-2 bg-blue-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-lg shadow-sm">+ ${escenario.datos?.costoAnilladoActual}</div>
-                                    <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mb-1">Impresión + Anillado</p>
-                                    <div className="flex justify-between items-end mb-2">
-                                        <span className="text-xs text-gray-500 font-medium">Lista:</span>
-                                        <span className="text-xl font-black text-gray-800 dark:text-white">${escenario.datos?.redondeadoConAnillado.toLocaleString('es-AR')}</span>
+                                
+                                {/* VALIDACIÓN PARA OCULTAR LA TARJETA DE ANILLADO */}
+                                {permiteAnillado && (
+                                    <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-800/30 relative">
+                                        <div className="absolute -top-2 -right-2 bg-blue-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-lg shadow-sm">+ ${escenario.datos?.costoAnilladoActual}</div>
+                                        <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mb-1">Impresión + Anillado</p>
+                                        <div className="flex justify-between items-end mb-2">
+                                            <span className="text-xs text-gray-500 font-medium">Lista:</span>
+                                            <span className="text-xl font-black text-gray-800 dark:text-white">${escenario.datos?.redondeadoConAnillado.toLocaleString('es-AR')}</span>
+                                        </div>
+                                        <div className="flex justify-between items-end">
+                                            <span className="text-xs text-green-600 dark:text-green-500 font-bold">Efectivo:</span>
+                                            <span className="text-lg font-black text-green-600 dark:text-green-500">${escenario.datos?.efectivoConAnillado.toLocaleString('es-AR')}</span>
+                                        </div>
                                     </div>
-                                    <div className="flex justify-between items-end">
-                                        <span className="text-xs text-green-600 dark:text-green-500 font-bold">Efectivo:</span>
-                                        <span className="text-lg font-black text-green-600 dark:text-green-500">${escenario.datos?.efectivoConAnillado.toLocaleString('es-AR')}</span>
-                                    </div>
-                                </div>
+                                )}
                             </div>
                         </div>
                     ))}

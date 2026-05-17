@@ -3,7 +3,6 @@ import { clienteSupabase } from '../servicios/clienteSupabase';
 import { FilaArchivo } from './FilaArchivo';
 import { ResumenOrden } from './ResumenOrden';
 
-// DICCIONARIO MAESTRO DE PRECIOS ESPECIALES
 export const PRECIOS_ESPECIALES = {
     a4Cartulina: { escalas: [{max: Infinity, precio: 300}] },
     a4Fotografico120: { escalas: [{max: Infinity, precio: 500}] },
@@ -25,6 +24,7 @@ export const PRECIOS_ESPECIALES = {
 };
 
 export const SIN_DOBLE_FAZ = ['a4Fotografico120', 'a4Fotografico200', 'a4Fotografico250', 'a4FotoAdhesivo135', 'sa3OppAdhesivo', 'a4OppAdhesivo', 'sa3IlustracionAdhesivo', 'a4IlustracionAdhesivo'];
+export const CON_ANILLADO = ['a4Color', 'a4BlancoYNegro', 'a4ObraColor'];
 
 export const CalculadoraCotizaciones = () => {
     const [tarifas, setTarifas] = useState({});
@@ -149,8 +149,9 @@ export const CalculadoraCotizaciones = () => {
             const nuevaLista = listaActual.map(archivo => {
                 if (archivo.id === id) {
                     let nuevoArchivo = { ...archivo, [campo]: valorFinal };
-                    if (campo === 'tipoServicio' && SIN_DOBLE_FAZ.includes(valorFinal)) {
-                        nuevoArchivo.esDobleFaz = false;
+                    if (campo === 'tipoServicio') {
+                        if (SIN_DOBLE_FAZ.includes(valorFinal)) nuevoArchivo.esDobleFaz = false;
+                        if (!CON_ANILLADO.includes(valorFinal)) nuevoArchivo.anillado = false;
                     }
                     return nuevoArchivo;
                 }

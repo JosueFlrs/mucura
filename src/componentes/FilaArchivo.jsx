@@ -1,14 +1,15 @@
-import { SIN_DOBLE_FAZ } from './CalculadoraCotizaciones';
+import { SIN_DOBLE_FAZ, CON_ANILLADO } from './CalculadoraCotizaciones';
 
 export const FilaArchivo = ({ archivo, detalleArchivo, manejarCambioArchivo, resetearArchivo }) => {
     const estaVacio = archivo.paginas === '' && !archivo.anillado;
     const permiteDobleFaz = !SIN_DOBLE_FAZ.includes(archivo.tipoServicio);
+    const permiteAnillado = CON_ANILLADO.includes(archivo.tipoServicio);
 
     return (
         <div className={`relative bg-white dark:bg-gray-800 p-5 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 transition-all duration-300 hover:shadow-md hover:border-empresa/30 grid grid-cols-1 xl:grid-cols-12 gap-5 items-center ${estaVacio ? 'opacity-60' : ''}`}>
             
             {!estaVacio && (
-                <button onClick={() => resetearArchivo(archivo.id)} title="Limpiar fila" className="absolute -top-3 -right-3 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-400 hover:text-red-500 p-2 rounded-full shadow-md z-20 transition-all group">
+                <button onClick={() => resetearArchivo(archivo.id)} title="Limpiar fila" className="absolute -top-3 -right-3 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-400 hover:text-red-500 hover:border-red-500 p-2 rounded-full shadow-md z-20 transition-all group">
                     <svg className="w-4 h-4 transform group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                 </button>
             )}
@@ -60,8 +61,8 @@ export const FilaArchivo = ({ archivo, detalleArchivo, manejarCambioArchivo, res
                     <input type="checkbox" className="hidden" disabled={!permiteDobleFaz} checked={archivo.esDobleFaz} onChange={(e) => manejarCambioArchivo(archivo.id, 'esDobleFaz', e.target.checked)} />
                     <span className="text-[10px] font-bold uppercase">Doble Faz</span>
                 </label>
-                <label className={`flex-1 flex items-center justify-center px-1 rounded-2xl border cursor-pointer transition-all ${archivo.anillado ? 'bg-empresa/10 border-empresa text-empresa' : 'bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-500'}`}>
-                    <input type="checkbox" className="hidden" checked={archivo.anillado} onChange={(e) => manejarCambioArchivo(archivo.id, 'anillado', e.target.checked)} />
+                <label className={`flex-1 flex items-center justify-center px-1 rounded-2xl border transition-all ${!permiteAnillado ? 'opacity-40 cursor-not-allowed bg-gray-100 dark:bg-gray-800' : archivo.anillado ? 'bg-empresa/10 border-empresa text-empresa cursor-pointer' : 'bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-500 cursor-pointer'}`}>
+                    <input type="checkbox" className="hidden" disabled={!permiteAnillado} checked={archivo.anillado} onChange={(e) => manejarCambioArchivo(archivo.id, 'anillado', e.target.checked)} />
                     <span className="text-[10px] font-bold uppercase">Anillado</span>
                 </label>
             </div>
@@ -86,7 +87,10 @@ export const FilaArchivo = ({ archivo, detalleArchivo, manejarCambioArchivo, res
                         <div className="flex justify-between items-center">
                             <div className="text-left">
                                 {detalleArchivo.totalMinorista !== detalleArchivo.totalMayorista && (
-                                    <><p className="text-[9px] font-bold text-gray-400 uppercase">Lista</p><p className="text-xs font-bold text-gray-400 line-through">${detalleArchivo.totalMinorista.toLocaleString('es-AR')}</p></>
+                                    <>
+                                        <p className="text-[9px] font-bold text-gray-400 uppercase">Lista</p>
+                                        <p className="text-xs font-bold text-gray-400 line-through">${detalleArchivo.totalMinorista.toLocaleString('es-AR')}</p>
+                                    </>
                                 )}
                             </div>
                             <div className="text-right">
