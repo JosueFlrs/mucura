@@ -198,6 +198,35 @@ export const CalculadoraCotizaciones = () => {
 
     const procesarCalculoManual = () => setResultadoManual(realizarCalculos(listaArchivos, tarifas, montoLibreria));
 
+    // NUEVA FUNCIÓN: Para guardar la orden
+    const guardarOrdenEnBaseDeDatos = async (metodoPago, totalCobrado) => {
+        try {
+            const nuevaOrden = {
+                fechaCreacion: new Date().toISOString(),
+                metodoPago: metodoPago,
+                totalCobrado: totalCobrado,
+                resumenPedido: datosEnPantalla.resumen,
+                montoLibreria: datosEnPantalla.montoLibreria
+            };
+
+            const { error } = await clienteSupabase
+                .from('ordenesProduccion')
+                .insert([nuevaOrden]);
+
+            if (error) throw error;
+
+            // Si se guardó con éxito, reseteamos la calculadora a cero
+            setListaArchivos([{ id: Date.now(), paginas: '', tipoServicio: 'a4Color', esDobleFaz: false, anillado: false }]);
+            setMontoLibreria('');
+            setResultadoManual(null);
+            
+            alert('¡Orden guardada correctamente!'); // Opcional: Cambiar por una notificación más linda luego
+        } catch (error) {
+            console.error("Error al guardar la orden:", error);
+            alert("Hubo un error al guardar la orden.");
+        }
+    };
+
     if (cargandoTarifas) return <div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-empresa"></div></div>;
 
     return (
@@ -248,8 +277,10 @@ export const CalculadoraCotizaciones = () => {
                 )}
             </div>
 
-            {/* A ResumenOrden ya no le pasamos los anilladosExtra */}
-            <ResumenOrden datosEnPantalla={datosEnPantalla} />
+            <ResumenOrden 
+                datosEnPantalla={datosEnPantalla} 
+                guardarOrdenEnBaseDeDatos={guardarOrdenEnBaseDeDatos}
+            />
         </div>
     );
 };

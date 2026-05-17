@@ -1,6 +1,10 @@
+import { useState } from 'react';
 import { SIN_DOBLE_FAZ } from './CalculadoraCotizaciones';
 
-export const ResumenOrden = ({ datosEnPantalla }) => {
+export const ResumenOrden = ({ datosEnPantalla, guardarOrdenEnBaseDeDatos }) => {
+    const [metodoPagoSeleccionado, setMetodoPagoSeleccionado] = useState(null);
+    const [procesandoCompra, setProcesandoCompra] = useState(false);
+
     const totalBase = datosEnPantalla?.totalSinRedondear || 0;
     const totalDigitalRedondeado = Math.ceil(totalBase / 100) * 100;
     const montoDescuentoEfectivo = totalBase * 0.13;
@@ -18,6 +22,18 @@ export const ResumenOrden = ({ datosEnPantalla }) => {
 
     const hayPaginas = datosEnPantalla && Object.keys(datosEnPantalla.resumen.paginas).length > 0;
     const tieneLibreria = datosEnPantalla && datosEnPantalla.montoLibreria > 0;
+    const puedeConfirmar = totalBase > 0 && metodoPagoSeleccionado !== null;
+
+    const manejarConfirmacion = async () => {
+        if (!puedeConfirmar) return;
+        setProcesandoCompra(true);
+        const totalFinal = metodoPagoSeleccionado === 'efectivo' ? totalEfectivoRedondeado : totalDigitalRedondeado;
+        
+        await guardarOrdenEnBaseDeDatos(metodoPagoSeleccionado, totalFinal);
+        
+        setProcesandoCompra(false);
+        setMetodoPagoSeleccionado(null);
+    };
 
     return (
         <div className="w-full lg:w-[340px] xl:w-[400px] flex-shrink-0 sticky bottom-4 lg:top-8 z-50">
@@ -63,7 +79,6 @@ export const ResumenOrden = ({ datosEnPantalla }) => {
                                 </div>
                             )}
                             
-                            {/* Renglón condicional para mostrar el monto ingresado en Librería */}
                             {tieneLibreria && (
                                 <div className="mt-3 pt-3 border-t border-dashed border-gray-200 dark:border-gray-700 flex justify-between items-center text-sm">
                                     <span className="text-gray-500 dark:text-gray-400 font-medium">Librería / Extras</span>
@@ -77,24 +92,37 @@ export const ResumenOrden = ({ datosEnPantalla }) => {
                 </div>
 
                 <div className="mt-6 pt-5 border-t border-gray-100 dark:border-gray-700">
-                    <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-3">Opciones de Pago</p>
-                    <div className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-4 rounded-2xl mb-3 flex justify-between items-center">
+                    <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-3">1. Seleccione Método de Pago</p>
+                    
+                    {/* BOTÓN TRANSFERENCIA */}
+                    <button 
+                        onClick={() => setMetodoPagoSeleccionado('digital')}
+                        className={`w-full text-left p-4 rounded-2xl mb-3 flex justify-between items-center transition-all border-2 ${metodoPagoSeleccionado === 'digital' ? 'border-empresa bg-empresa/5 shadow-md' : 'border-transparent bg-gray-50 dark:bg-gray-900 hover:border-gray-300 dark:hover:border-gray-600'}`}
+                    >
                         <div>
-                            <span className="text-xs font-bold text-gray-600 dark:text-gray-300 block">Transferencia / Débito</span>
+                            <span className={`text-xs font-bold block ${metodoPagoSeleccionado === 'digital' ? 'text-empresa' : 'text-gray-600 dark:text-gray-300'}`}>Transferencia / Débito</span>
                             {totalBase !== totalDigitalRedondeado && <span className="text-[10px] text-gray-400 line-through">Exacto: ${totalBase.toLocaleString('es-AR')}</span>}
                         </div>
-                        <span className="text-2xl font-black text-empresa">${totalBase > 0 ? totalDigitalRedondeado.toLocaleString('es-AR') : '0'}</span>
-                    </div>
+                        <span className={`text-2xl font-black ${metodoPagoSeleccionado === 'digital' ? 'text-empresa' : 'text-gray-800 dark:text-white'}`}>${totalBase > 0 ? totalDigitalRedondeado.toLocaleString('es-AR') : '0'}</span>
+                    </button>
 
-                    <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-5 rounded-2xl text-white shadow-lg relative overflow-hidden group">
+                    {/* BOTÓN EFECTIVO */}
+                    <button 
+                        onClick={() => setMetodoPagoSeleccionado('efectivo')}
+                        className={`w-full text-left p-5 rounded-2xl relative overflow-hidden group transition-all border-2 ${metodoPagoSeleccionado === 'efectivo' ? 'border-green-400 shadow-lg ring-4 ring-green-500/20' : 'border-transparent opacity-90 hover:opacity-100'}`}
+                    >
+                        {/* Fondo con gradiente siempre activo, pero cambia opacidad si no está seleccionado */}
+                        <div className={`absolute inset-0 bg-gradient-to-br from-green-500 to-emerald-600 transition-opacity ${metodoPagoSeleccionado === 'efectivo' ? 'opacity-100' : 'opacity-80'}`}></div>
+                        
                         <div className="absolute top-0 right-0 p-4 opacity-10 transform group-hover:scale-110 transition-transform duration-500">
-                            <svg className="w-24 h-24 -mr-6 -mt-6" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" /><path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd" /></svg>
+                            <svg className="w-24 h-24 -mr-6 -mt-6 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" /><path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd" /></svg>
                         </div>
+                        
                         <div className="flex justify-between items-start relative z-10 mb-2">
-                            <span className="text-[11px] uppercase tracking-widest font-bold opacity-90">Efectivo (-13%)</span>
-                            {montoDescuentoEfectivo > 0 && <span className="text-[15px] bg-white/20 px-2 py-1 rounded-lg font-bold backdrop-blur-sm">Ahorro: ${Math.round(montoDescuentoEfectivo).toLocaleString('es-AR')}</span>}
+                            <span className="text-[11px] uppercase tracking-widest font-bold text-white opacity-90">Efectivo (-13%)</span>
+                            {montoDescuentoEfectivo > 0 && <span className="text-[15px] bg-white/20 text-white px-2 py-1 rounded-lg font-bold backdrop-blur-sm">Ahorro: ${Math.round(montoDescuentoEfectivo).toLocaleString('es-AR')}</span>}
                         </div>
-                        <div className="flex justify-between items-end relative z-10 mt-2">
+                        <div className="flex justify-between items-end relative z-10 mt-2 text-white">
                             <div className="pb-1">
                                 {totalEfectivoExacto !== totalEfectivoRedondeado && <span className="text-[20px] line-through opacity-70 block">${totalEfectivoExacto.toLocaleString('es-AR')}</span>}
                             </div>
@@ -103,8 +131,22 @@ export const ResumenOrden = ({ datosEnPantalla }) => {
                                 <span className="text-5xl lg:text-5xl xl:text-6xl font-black tracking-tighter overflow-hidden text-ellipsis">{totalBase > 0 ? totalEfectivoRedondeado.toLocaleString('es-AR') : '0'}</span>
                             </div>
                         </div>
+                    </button>
+                    
+                    {/* BOTÓN CONFIRMAR COMPRA */}
+                    <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
+                        <button
+                            onClick={manejarConfirmacion}
+                            disabled={!puedeConfirmar || procesandoCompra}
+                            className={`w-full py-4 rounded-2xl font-black text-lg uppercase tracking-widest transition-all shadow-md flex justify-center items-center gap-2 ${puedeConfirmar ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:scale-[1.02]' : 'bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed'}`}
+                        >
+                            {procesandoCompra ? (
+                                <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            ) : (
+                                "Confirmar Compra"
+                            )}
+                        </button>
                     </div>
-                    <p className="text-center text-[9px] text-gray-400 dark:text-gray-500 uppercase tracking-widest mt-4 italic">Redondeo automático incluido</p>
                 </div>
             </div>
         </div>
