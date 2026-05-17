@@ -2,11 +2,33 @@ import { useState, useEffect } from 'react';
 import { clienteSupabase } from '../servicios/clienteSupabase';
 import { PRECIOS_ESPECIALES, SIN_DOBLE_FAZ, CON_ANILLADO } from './CalculadoraCotizaciones';
 
+// Diccionario para mostrar nombres bonitos en las tarjetas
+const NOMBRES_SERVICIOS = {
+    a4Color: "A4 Color", a4BlancoYNegro: "A4 B/N", a4ObraColor: "A4 Obra", a3ObraColor: "A3 Obra",
+    a4Cartulina: "A4 Cartulina", a4Fotografico120: "A4 Foto 120g", a4Fotografico200: "A4 Foto 200g",
+    a4Fotografico250: "A4 Foto 250g", a4FotoAdhesivo135: "A4 Foto Adhes.", sa3OppAdhesivo: "S.A3 OPP",
+    a4OppAdhesivo: "A4 OPP", sa3Ilustracion115: "S.A3 Ilust. 115g", a4Ilustracion115: "A4 Ilust. 115g",
+    sa3Ilustracion200: "S.A3 Ilust. 200g", a4Ilustracion200: "A4 Ilust. 200g", sa3Ilustracion300: "S.A3 Ilust. 300g",
+    a4Ilustracion300: "A4 Ilust. 300g", sa3IlustracionAdhesivo: "S.A3 Ilust. Adhes.", a4IlustracionAdhesivo: "A4 Ilust. Adhes."
+};
+
+// Definimos los grupos comerciales para comparar opciones
+const GRUPOS_PAPELES = {
+    clasicosA4: { nombre: "Clásicos A4 (Color y B/N)", papeles: ['a4Color', 'a4BlancoYNegro'] },
+    obraLaser: { nombre: "Papel Obra Láser (A4 y A3)", papeles: ['a4ObraColor', 'a3ObraColor'] },
+    fotograficos: { nombre: "Cartulina y Fotográficos A4", papeles: ['a4Cartulina', 'a4Fotografico120', 'a4Fotografico200', 'a4Fotografico250'] },
+    ilustracionA4: { nombre: "Ilustración Láser A4", papeles: ['a4Ilustracion115', 'a4Ilustracion200', 'a4Ilustracion300'] },
+    ilustracionSA3: { nombre: "Ilustración Láser Super A3", papeles: ['sa3Ilustracion115', 'sa3Ilustracion200', 'sa3Ilustracion300'] },
+    adhesivos: { nombre: "Adhesivos (OPP, Foto, Ilust.)", papeles: ['a4FotoAdhesivo135', 'a4OppAdhesivo', 'sa3OppAdhesivo', 'a4IlustracionAdhesivo', 'sa3IlustracionAdhesivo'] }
+};
+
 export const CotizadorRapido = () => {
     const [tarifas, setTarifas] = useState({});
     const [cargandoTarifas, setCargandoTarifas] = useState(true);
     const [cantidadPaginas, setCantidadPaginas] = useState('');
-    const [papelSeleccionado, setPapelSeleccionado] = useState('a4Color');
+    
+    // Ahora seleccionamos el grupo entero en lugar de un solo papel
+    const [categoriaSeleccionada, setCategoriaSeleccionada] = useState('clasicosA4');
 
     useEffect(() => {
         const obtenerTarifas = async () => {
@@ -20,14 +42,15 @@ export const CotizadorRapido = () => {
         obtenerTarifas();
     }, []);
 
-    const calcularEscenario = (esDobleFaz) => {
+    // El motor ahora recibe qué papel específico calcular en cada iteración
+    const calcularEscenario = (papel, esDobleFaz) => {
         const cantidad = parseInt(cantidadPaginas) || 0;
         if (cantidad <= 0 || !tarifas) return null;
 
         let costoUnitario = 0;
 
-        if (PRECIOS_ESPECIALES[papelSeleccionado]) {
-            const config = PRECIOS_ESPECIALES[papelSeleccionado];
+        if (PRECIOS_ESPECIALES[papel]) {
+            const config = PRECIOS_ESPECIALES[papel];
             for (let escala of config.escalas) {
                 if (cantidad <= escala.max) {
                     costoUnitario = escala.precio;
@@ -36,7 +59,7 @@ export const CotizadorRapido = () => {
             }
             if (esDobleFaz) costoUnitario *= 1.5;
         } else {
-            const claveTarifa = papelSeleccionado + (esDobleFaz ? 'DobleFaz' : '');
+            const claveTarifa = papel + (esDobleFaz ? 'DobleFaz' : '');
             const escala = tarifas[claveTarifa];
             if (!escala) return null;
             if (cantidad <= 50) costoUnitario = escala.precioHasta50;
@@ -66,76 +89,104 @@ export const CotizadorRapido = () => {
 
     if (cargandoTarifas) return <div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-empresa"></div></div>;
 
-    const permiteDobleFaz = !SIN_DOBLE_FAZ.includes(papelSeleccionado);
-    const permiteAnillado = CON_ANILLADO.includes(papelSeleccionado);
-    
+    // Generador Dinámico de Tarjetas según el grupo seleccionado
     const escenarios = [];
-    if (calcularEscenario(false)) {
-        escenarios.push({ id: 1, subtitulo: "Simple Faz", datos: calcularEscenario(false), color: "bg-gray-800", textoColor: "text-gray-100" });
-    }
-    if (permiteDobleFaz && calcularEscenario(true)) {
-        escenarios.push({ id: 2, subtitulo: "Doble Faz", datos: calcularEscenario(true), color: "bg-gradient-to-br from-empresa to-[#D12E9E]", textoColor: "text-white" });
+    if (parseInt(cantidadPaginas) > 0) {
+        const papelesDelGrupo = GRUPOS_PAPELES[categoriaSeleccionada].papeles;
+
+        papelesDelGrupo.forEach((papel) => {
+            const permiteDobleFaz = !SIN_DOBLE_FAZ.includes(papel);
+            const permiteAnillado = CON_ANILLADO.includes(papel);
+            const nombreMostrar = NOMBRES_SERVICIOS[papel] || papel;
+
+            // Tarjeta Simple Faz
+            const datosSimple = calcularEscenario(papel, false);
+            if (datosSimple) {
+                escenarios.push({
+                    id: `${papel}-simple`,
+                    titulo: nombreMostrar,
+                    subtitulo: "Simple Faz",
+                    datos: datosSimple,
+                    color: "bg-gray-800",
+                    textoColor: "text-gray-100",
+                    permiteAnillado: permiteAnillado
+                });
+            }
+
+            // Tarjeta Doble Faz (Solo si el papel lo admite)
+            if (permiteDobleFaz) {
+                const datosDoble = calcularEscenario(papel, true);
+                if (datosDoble) {
+                    escenarios.push({
+                        id: `${papel}-doble`,
+                        titulo: nombreMostrar,
+                        subtitulo: "Doble Faz",
+                        datos: datosDoble,
+                        color: "bg-gradient-to-br from-empresa to-[#D12E9E]",
+                        textoColor: "text-white",
+                        permiteAnillado: permiteAnillado
+                    });
+                }
+            }
+        });
     }
 
     return (
-        <div className="max-w-6xl mx-auto flex flex-col gap-8 animate-fade-in pb-10">
+        <div className="max-w-7xl mx-auto flex flex-col gap-8 animate-fade-in pb-10">
+            
             <div className="bg-white dark:bg-gray-800 rounded-3xl p-8 md:p-12 shadow-sm border border-gray-100 dark:border-gray-700 text-center">
-                <h2 className="text-3xl font-black text-gray-800 dark:text-white mb-2 tracking-tight">Consulta Rápida de Precios</h2>
-                <p className="text-gray-500 dark:text-gray-400 mb-8">Seleccione papel e ingrese la cantidad de páginas para ver las opciones al instante</p>
+                <h2 className="text-3xl font-black text-gray-800 dark:text-white mb-2 tracking-tight">Cotizador Comparativo</h2>
+                <p className="text-gray-500 dark:text-gray-400 mb-8">Compare al instante todas las opciones y gramajes de una misma categoría</p>
                 
-                <div className="max-w-xl mx-auto flex flex-col sm:flex-row gap-4">
+                <div className="max-w-2xl mx-auto flex flex-col sm:flex-row gap-4">
                     <div className="flex-1 relative">
-                        <select className="w-full h-20 px-6 bg-gray-50 dark:bg-gray-900 border-2 border-gray-200 dark:border-gray-600 rounded-3xl font-bold text-lg text-center text-gray-800 dark:text-white outline-none focus:border-empresa cursor-pointer" value={papelSeleccionado} onChange={(e) => setPapelSeleccionado(e.target.value)}>
-                            <optgroup label="Impresiones Clásicas">
-                                <option value="a4Color">A4 Color</option>
-                                <option value="a4BlancoYNegro">A4 B/N</option>
-                            </optgroup>
-                            <optgroup label="Láser Color Común">
-                                <option value="a4ObraColor">A4 Obra Láser</option>
-                                <option value="a3ObraColor">A3 Obra Láser</option>
-                            </optgroup>
-                            <optgroup label="Cartulinas y Fotográficos">
-                                <option value="a4Cartulina">A4 Cartulina Color</option>
-                                <option value="a4Fotografico120">A4 Fotográfico 120g</option>
-                                <option value="a4Fotografico200">A4 Fotográfico 200g</option>
-                                <option value="a4Fotografico250">A4 Fotográfico 250g</option>
-                            </optgroup>
-                            <optgroup label="Ilustración Láser Color">
-                                <option value="a4Ilustracion115">A4 Ilustración 115g</option>
-                                <option value="sa3Ilustracion115">S.A3 Ilustración 115g</option>
-                                <option value="a4Ilustracion200">A4 Ilustración 200g</option>
-                                <option value="sa3Ilustracion200">S.A3 Ilustración 200g</option>
-                                <option value="a4Ilustracion300">A4 Ilustración 300g</option>
-                                <option value="sa3Ilustracion300">S.A3 Ilustración 300g</option>
-                            </optgroup>
-                            <optgroup label="Adhesivos">
-                                <option value="a4FotoAdhesivo135">A4 Foto Adhesivo 135g</option>
-                                <option value="a4OppAdhesivo">A4 OPP Adhesivo</option>
-                                <option value="sa3OppAdhesivo">S.A3 OPP Adhesivo</option>
-                                <option value="a4IlustracionAdhesivo">A4 Ilust. Adhesivo</option>
-                                <option value="sa3IlustracionAdhesivo">S.A3 Ilust. Adhesivo</option>
-                            </optgroup>
+                        <select 
+                            className="w-full h-20 px-6 bg-gray-50 dark:bg-gray-900 border-2 border-gray-200 dark:border-gray-600 rounded-3xl font-bold text-lg text-center text-gray-800 dark:text-white outline-none focus:border-empresa cursor-pointer appearance-none transition-all" 
+                            value={categoriaSeleccionada} 
+                            onChange={(e) => setCategoriaSeleccionada(e.target.value)}
+                        >
+                            {Object.entries(GRUPOS_PAPELES).map(([clave, grupo]) => (
+                                <option key={clave} value={clave} className="bg-white dark:bg-gray-800 text-gray-800 dark:text-white font-bold">
+                                    {grupo.nombre}
+                                </option>
+                            ))}
                         </select>
-                        <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-gray-600 text-white px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest shadow-md">Tipo de Papel</div>
+                        {/* Ícono de flecha personalizado para el select */}
+                        <div className="absolute inset-y-0 right-6 flex items-center pointer-events-none">
+                            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" /></svg>
+                        </div>
+                        <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-gray-600 text-white px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest shadow-md">Grupo de Papeles</div>
                     </div>
 
                     <div className="w-full sm:w-48 relative">
-                        <input type="number" className="w-full h-20 px-6 bg-gray-50 dark:bg-gray-900 border-2 border-gray-200 dark:border-gray-600 rounded-3xl font-black text-4xl text-center text-gray-800 dark:text-white outline-none focus:border-empresa focus:ring-4 focus:ring-empresa/20 transition-all shadow-inner" value={cantidadPaginas} onChange={(e) => { const val = e.target.value; if (val === '') setCantidadPaginas(''); else setCantidadPaginas(Math.max(0, parseInt(val))); }} placeholder="0" autoFocus />
+                        <input 
+                            type="number" 
+                            className="w-full h-20 px-6 bg-gray-50 dark:bg-gray-900 border-2 border-gray-200 dark:border-gray-600 rounded-3xl font-black text-4xl text-center text-gray-800 dark:text-white outline-none focus:border-empresa focus:ring-4 focus:ring-empresa/20 transition-all shadow-inner" 
+                            value={cantidadPaginas} 
+                            onChange={(e) => { const val = e.target.value; if (val === '') setCantidadPaginas(''); else setCantidadPaginas(Math.max(0, parseInt(val))); }} 
+                            placeholder="0" 
+                            autoFocus 
+                        />
                         <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 bg-empresa text-white px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest shadow-md">Páginas</div>
                     </div>
                 </div>
             </div>
 
-            {parseInt(cantidadPaginas) > 0 && escenarios.length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto w-full">
+            {escenarios.length > 0 && (
+                /* Grilla fluida que se adapta automáticamente según si muestra 2, 4 u 8 tarjetas */
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 w-full">
                     {escenarios.map((escenario) => (
                         <div key={escenario.id} className={`${escenario.color} rounded-3xl shadow-xl overflow-hidden flex flex-col transform transition-transform duration-300 hover:-translate-y-2`}>
-                            <div className="p-6 text-center border-b border-white/10">
-                                <h3 className={`text-2xl font-black ${escenario.textoColor} tracking-tight`}>Opciones</h3>
-                                <p className={`text-sm font-bold opacity-80 uppercase tracking-widest mt-1 ${escenario.textoColor}`}>{escenario.subtitulo}</p>
-                                <p className="text-[10px] opacity-60 mt-3 font-medium">Costo unitario: ${escenario.datos?.costoUnitario}</p>
+                            
+                            <div className="p-5 text-center border-b border-white/10">
+                                <h3 className={`text-xl font-black ${escenario.textoColor} tracking-tight`}>{escenario.titulo}</h3>
+                                <p className={`text-xs font-bold opacity-80 uppercase tracking-widest mt-1 ${escenario.textoColor}`}>{escenario.subtitulo}</p>
+                                <p className="text-[10px] opacity-60 mt-3 font-medium text-white bg-black/20 mx-auto w-max px-3 py-1 rounded-full">
+                                    Unitario: ${escenario.datos?.costoUnitario}
+                                </p>
                             </div>
-                            <div className="p-6 flex-grow bg-white dark:bg-gray-900 flex flex-col gap-4">
+
+                            <div className="p-5 flex-grow bg-white dark:bg-gray-900 flex flex-col gap-4">
                                 <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700">
                                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Solo Impresión</p>
                                     <div className="flex justify-between items-end mb-2">
@@ -148,10 +199,11 @@ export const CotizadorRapido = () => {
                                     </div>
                                 </div>
                                 
-                                {/* VALIDACIÓN PARA OCULTAR LA TARJETA DE ANILLADO */}
-                                {permiteAnillado && (
+                                {escenario.permiteAnillado && (
                                     <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-800/30 relative">
-                                        <div className="absolute -top-2 -right-2 bg-blue-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-lg shadow-sm">+ ${escenario.datos?.costoAnilladoActual}</div>
+                                        <div className="absolute -top-2 -right-2 bg-blue-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-lg shadow-sm">
+                                            + ${escenario.datos?.costoAnilladoActual}
+                                        </div>
                                         <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mb-1">Impresión + Anillado</p>
                                         <div className="flex justify-between items-end mb-2">
                                             <span className="text-xs text-gray-500 font-medium">Lista:</span>
