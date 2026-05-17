@@ -1,6 +1,6 @@
 import { SIN_DOBLE_FAZ } from './CalculadoraCotizaciones';
 
-export const ResumenOrden = ({ datosEnPantalla, anilladosExtra, manejarAnilladoExtra }) => {
+export const ResumenOrden = ({ datosEnPantalla }) => {
     const totalBase = datosEnPantalla?.totalSinRedondear || 0;
     const totalDigitalRedondeado = Math.ceil(totalBase / 100) * 100;
     const montoDescuentoEfectivo = totalBase * 0.13;
@@ -17,6 +17,7 @@ export const ResumenOrden = ({ datosEnPantalla, anilladosExtra, manejarAnilladoE
     };
 
     const hayPaginas = datosEnPantalla && Object.keys(datosEnPantalla.resumen.paginas).length > 0;
+    const tieneLibreria = datosEnPantalla && datosEnPantalla.montoLibreria > 0;
 
     return (
         <div className="w-full lg:w-[340px] xl:w-[400px] flex-shrink-0 sticky bottom-4 lg:top-8 z-50">
@@ -61,40 +62,18 @@ export const ResumenOrden = ({ datosEnPantalla, anilladosExtra, manejarAnilladoE
                                     })}
                                 </div>
                             )}
+                            
+                            {/* Renglón condicional para mostrar el monto ingresado en Librería */}
+                            {tieneLibreria && (
+                                <div className="mt-3 pt-3 border-t border-dashed border-gray-200 dark:border-gray-700 flex justify-between items-center text-sm">
+                                    <span className="text-gray-500 dark:text-gray-400 font-medium">Librería / Extras</span>
+                                    <span className="text-gray-800 dark:text-white font-black">${datosEnPantalla.montoLibreria.toLocaleString('es-AR')}</span>
+                                </div>
+                            )}
                         </>
                     ) : (
                         <div className="text-center py-6 text-gray-400 dark:text-gray-500 text-sm italic">Esperando datos...</div>
                     )}
-
-                    <div className="mt-4 pt-4 border-t border-dashed border-gray-200 dark:border-gray-700">
-                        <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-2.5">Anillados Extras / Agrupados</p>
-                        <div className="grid grid-cols-3 gap-2">
-                            <div className="flex flex-col items-center bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700/70 rounded-2xl py-1.5 px-1">
-                                <span className="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase">Chico</span>
-                                <div className="flex items-center gap-2 mt-1">
-                                    <button onClick={() => manejarAnilladoExtra('chico', 'restar')} className="w-5 h-5 rounded-full flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-red-500 hover:shadow-sm font-black text-xs transition-colors">-</button>
-                                    <span className="text-xs font-black text-gray-800 dark:text-white">{anilladosExtra.chico}</span>
-                                    <button onClick={() => manejarAnilladoExtra('chico', 'sumar')} className="w-5 h-5 rounded-full flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-green-500 hover:shadow-sm font-black text-xs transition-colors">+</button>
-                                </div>
-                            </div>
-                            <div className="flex flex-col items-center bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700/70 rounded-2xl py-1.5 px-1">
-                                <span className="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase">Medio</span>
-                                <div className="flex items-center gap-2 mt-1">
-                                    <button onClick={() => manejarAnilladoExtra('mediano', 'restar')} className="w-5 h-5 rounded-full flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-red-500 hover:shadow-sm font-black text-xs transition-colors">-</button>
-                                    <span className="text-xs font-black text-gray-800 dark:text-white">{anilladosExtra.mediano}</span>
-                                    <button onClick={() => manejarAnilladoExtra('mediano', 'sumar')} className="w-5 h-5 rounded-full flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-green-500 hover:shadow-sm font-black text-xs transition-colors">+</button>
-                                </div>
-                            </div>
-                            <div className="flex flex-col items-center bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700/70 rounded-2xl py-1.5 px-1">
-                                <span className="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase">Grande</span>
-                                <div className="flex items-center gap-2 mt-1">
-                                    <button onClick={() => manejarAnilladoExtra('grande', 'restar')} className="w-5 h-5 rounded-full flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-red-500 hover:shadow-sm font-black text-xs transition-colors">-</button>
-                                    <span className="text-xs font-black text-gray-800 dark:text-white">{anilladosExtra.grande}</span>
-                                    <button onClick={() => manejarAnilladoExtra('grande', 'sumar')} className="w-5 h-5 rounded-full flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-green-500 hover:shadow-sm font-black text-xs transition-colors">+</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
 
                 <div className="mt-6 pt-5 border-t border-gray-100 dark:border-gray-700">

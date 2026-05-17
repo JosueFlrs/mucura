@@ -37,7 +37,10 @@ export const CalculadoraCotizaciones = () => {
     });
 
     const [listaArchivos, setListaArchivos] = useState([{ id: Date.now(), paginas: '', tipoServicio: 'a4Color', esDobleFaz: false, anillado: false }]);
-    const [anilladosExtra, setAnilladosExtra] = useState({ chico: 0, mediano: 0, grande: 0 });
+    
+    // NUEVO ESTADO: Adicional libre para Librería u otros cargos
+    const [montoLibreria, setMontoLibreria] = useState('');
+    
     const [resultadoManual, setResultadoManual] = useState(null);
 
     useEffect(() => { window.localStorage.setItem('preferenciaModoAutomatico', JSON.stringify(modoAutomatico)); }, [modoAutomatico]);
@@ -54,7 +57,7 @@ export const CalculadoraCotizaciones = () => {
         obtenerTarifas();
     }, []);
 
-    const realizarCalculos = (archivos, tablaTarifas, extras) => {
+    const realizarCalculos = (archivos, tablaTarifas, adicionalLibreria) => {
         let acumuladoMayorista = 0;
         const agrupacionPorVolumen = {};
         const resumenDetallado = { cantidadArchivosImpresos: 0, cantidadAnillados: 0, paginas: {} };
@@ -131,14 +134,19 @@ export const CalculadoraCotizaciones = () => {
             return { precioUnitarioMayorista, subtotalImpresion: subtotalImpresionMayorista, costoAnillado, totalMinorista, totalMayorista };
         });
 
-        const costoExtras = (extras.chico * 1500) + (extras.mediano * 1700) + (extras.grande * 1900);
-        acumuladoMayorista += costoExtras;
-        resumenDetallado.cantidadAnillados += (extras.chico + extras.mediano + extras.grande);
+        // SUMAMOS EL MONTO LIBRE DE LIBRERÍA
+        const valorLibreria = parseInt(adicionalLibreria) || 0;
+        acumuladoMayorista += valorLibreria;
 
-        return { detalles: detallesPorArchivo, resumen: resumenDetallado, totalSinRedondear: acumuladoMayorista };
+        return { 
+            detalles: detallesPorArchivo, 
+            resumen: resumenDetallado, 
+            totalSinRedondear: acumuladoMayorista,
+            montoLibreria: valorLibreria // Lo guardamos para mostrarlo en el ticket
+        };
     };
 
-    const resultadoAutomatico = useMemo(() => realizarCalculos(listaArchivos, tarifas, anilladosExtra), [listaArchivos, tarifas, anilladosExtra]);
+    const resultadoAutomatico = useMemo(() => realizarCalculos(listaArchivos, tarifas, montoLibreria), [listaArchivos, tarifas, montoLibreria]);
     const datosEnPantalla = modoAutomatico ? resultadoAutomatico : resultadoManual;
 
     const manejarCambioArchivo = (id, campo, valor) => {
@@ -171,9 +179,9 @@ export const CalculadoraCotizaciones = () => {
         });
     };
 
-    const manejarAnilladoExtra = (tipo, operacion) => {
+    const manejarCambioLibreria = (valor) => {
         if (!modoAutomatico) setResultadoManual(null);
-        setAnilladosExtra(actual => ({ ...actual, [tipo]: operacion === 'sumar' ? actual[tipo] + 1 : Math.max(0, actual[tipo] - 1) }));
+        setMontoLibreria(valor === '' ? '' : Math.max(0, parseInt(valor)));
     };
 
     const resetearArchivo = (id) => {
@@ -188,7 +196,7 @@ export const CalculadoraCotizaciones = () => {
         });
     };
 
-    const procesarCalculoManual = () => setResultadoManual(realizarCalculos(listaArchivos, tarifas, anilladosExtra));
+    const procesarCalculoManual = () => setResultadoManual(realizarCalculos(listaArchivos, tarifas, montoLibreria));
 
     if (cargandoTarifas) return <div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-empresa"></div></div>;
 
@@ -212,12 +220,36 @@ export const CalculadoraCotizaciones = () => {
                     ))}
                 </div>
 
+                {/* NUEVO INPUT: Adicional de Librería / Otros */}
+                <div className="bg-white dark:bg-gray-800 rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-gray-700 flex justify-between items-center gap-4 transition-all hover:border-empresa/30 mb-2 mt-4">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-2xl bg-empresa/10 flex items-center justify-center text-empresa">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+                        </div>
+                        <div>
+                            <h3 className="text-sm font-black text-gray-800 dark:text-white">Librería / Otros</h3>
+                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">Anillados extra, útiles, etc.</p>
+                        </div>
+                    </div>
+                    <div className="relative w-32 md:w-40">
+                        <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 font-black">$</span>
+                        <input 
+                            type="number" 
+                            className="w-full h-12 pl-8 pr-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-2xl font-black text-lg text-gray-800 dark:text-white outline-none focus:border-empresa text-right transition-all" 
+                            value={montoLibreria} 
+                            onChange={(e) => manejarCambioLibreria(e.target.value)} 
+                            placeholder="0" 
+                        />
+                    </div>
+                </div>
+
                 {!modoAutomatico && (
-                    <button onClick={procesarCalculoManual} className="w-full bg-gray-900 dark:bg-gray-700 text-white font-black py-5 rounded-3xl shadow-lg transition-all text-lg uppercase tracking-widest mt-4">Actualizar Precios</button>
+                    <button onClick={procesarCalculoManual} className="w-full bg-gray-900 dark:bg-gray-700 text-white font-black py-5 rounded-3xl shadow-lg transition-all text-lg uppercase tracking-widest mt-2">Actualizar Precios</button>
                 )}
             </div>
 
-            <ResumenOrden datosEnPantalla={datosEnPantalla} anilladosExtra={anilladosExtra} manejarAnilladoExtra={manejarAnilladoExtra} />
+            {/* A ResumenOrden ya no le pasamos los anilladosExtra */}
+            <ResumenOrden datosEnPantalla={datosEnPantalla} />
         </div>
     );
 };
