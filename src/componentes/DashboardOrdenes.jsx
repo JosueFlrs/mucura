@@ -1,7 +1,6 @@
-// src/componentes/DashboardOrdenes.jsx
-
 import { useState, useEffect } from 'react';
 import { clienteSupabase } from '../servicios/clienteSupabase';
+import Swal from 'sweetalert2';
 
 const NOMBRES_SERVICIOS = {
     a4Color: "A4 Color", a4BlancoYNegro: "A4 B/N", a4ObraColor: "A4 Obra", a3ObraColor: "A3 Obra",
@@ -41,13 +40,30 @@ export const DashboardOrdenes = () => {
         }
     };
 
-    // NUEVA FUNCIÓN: Lógica para eliminar la orden de Supabase y del estado local
+    // INTEGRACIÓN DE SWEETALERT2 PARA ELIMINAR
     const eliminarOrden = async (id, evento) => {
-        // DETECCIÓN EVOLUTIVA: Frena el bubbling para que no se abra el modal de detalle
         evento.stopPropagation();
+        const esModoOscuro = document.documentElement.classList.contains('dark');
 
-        const confirmarEliminacion = window.confirm('¿Está seguro de que desea eliminar permanentemente esta orden del historial?');
-        if (!confirmarEliminacion) return;
+        const confirmacionEliminar = await Swal.fire({
+            title: '¿Eliminar orden?',
+            text: "Esta acción borrará el registro de forma permanente.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, eliminar',
+            cancelButtonText: 'Cancelar',
+            background: esModoOscuro ? '#1f2937' : '#ffffff',
+            color: esModoOscuro ? '#ffffff' : '#1f2937',
+            buttonsStyling: false,
+            customClass: {
+                popup: 'rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-700',
+                title: 'text-2xl font-black',
+                confirmButton: 'bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-2xl mx-2 transition-all',
+                cancelButton: esModoOscuro ? 'bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-2xl mx-2 transition-all' : 'bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-3 px-6 rounded-2xl mx-2 transition-all'
+            }
+        });
+
+        if (!confirmacionEliminar.isConfirmed) return;
 
         try {
             const { error } = await clienteSupabase
@@ -57,11 +73,38 @@ export const DashboardOrdenes = () => {
 
             if (error) throw error;
 
-            // Filtramos el estado de forma síncrona para actualizar la grilla al instante
             setOrdenes(ordenesActuales => ordenesActuales.filter(orden => orden.id !== id));
+            
+            Swal.fire({
+                icon: 'success',
+                title: 'Eliminada',
+                text: 'La orden ha sido borrada del historial.',
+                toast: true,
+                position: 'bottom-end',
+                showConfirmButton: false,
+                timer: 3000,
+                background: esModoOscuro ? '#1f2937' : '#ffffff',
+                color: esModoOscuro ? '#ffffff' : '#1f2937',
+                customClass: {
+                    popup: 'rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700'
+                }
+            });
         } catch (error) {
             console.error("error al intentar eliminar la orden:", error);
-            alert('Hubo un error en el servidor al intentar borrar la orden.');
+            Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: 'Hubo un error en el servidor al intentar borrar la orden.',
+                toast: true,
+                position: 'bottom-end',
+                showConfirmButton: false,
+                timer: 4000,
+                background: esModoOscuro ? '#1f2937' : '#ffffff',
+                color: esModoOscuro ? '#ffffff' : '#1f2937',
+                customClass: {
+                    popup: 'rounded-2xl shadow-xl'
+                }
+            });
         }
     };
 
@@ -100,7 +143,7 @@ export const DashboardOrdenes = () => {
                                 <th className="p-5">Librería</th>
                                 <th className="p-5">Método Pago</th>
                                 <th className="p-5 text-right">Total</th>
-                                <th className="p-5 text-center">Acciones</th> {/* Nueva columna */}
+                                <th className="p-5 text-center">Acciones</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -127,8 +170,6 @@ export const DashboardOrdenes = () => {
                                     <td className="p-5 text-right text-lg font-black text-gray-800 dark:text-white">
                                         ${orden.totalCobrado.toLocaleString('es-AR')}
                                     </td>
-                                    
-                                    {/* CELDA DEL BOTÓN ELIMINAR */}
                                     <td className="p-5 text-center">
                                         <button
                                             onClick={(evento) => eliminarOrden(orden.id, evento)}
@@ -152,7 +193,6 @@ export const DashboardOrdenes = () => {
                 </div>
             </div>
 
-            {/* MODAL DE DETALLE DE ORDEN */}
             {ordenSeleccionada && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-gray-900/40 dark:bg-black/60 backdrop-blur-sm animate-fade-in">
                     <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-700 overflow-hidden w-full max-w-md flex flex-col relative animate-slide-up">

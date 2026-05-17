@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { clienteSupabase } from '../servicios/clienteSupabase';
 import { FilaArchivo } from './FilaArchivo';
 import { ResumenOrden } from './ResumenOrden';
+import Swal from 'sweetalert2';
 
 export const PRECIOS_ESPECIALES = {
     a4Cartulina: { escalas: [{max: Infinity, precio: 300}] },
@@ -37,10 +38,7 @@ export const CalculadoraCotizaciones = () => {
     });
 
     const [listaArchivos, setListaArchivos] = useState([{ id: Date.now(), paginas: '', tipoServicio: 'a4Color', esDobleFaz: false, anillado: false }]);
-    
-    // NUEVO ESTADO: Adicional libre para Librería u otros cargos
     const [montoLibreria, setMontoLibreria] = useState('');
-    
     const [resultadoManual, setResultadoManual] = useState(null);
 
     useEffect(() => { window.localStorage.setItem('preferenciaModoAutomatico', JSON.stringify(modoAutomatico)); }, [modoAutomatico]);
@@ -134,7 +132,6 @@ export const CalculadoraCotizaciones = () => {
             return { precioUnitarioMayorista, subtotalImpresion: subtotalImpresionMayorista, costoAnillado, totalMinorista, totalMayorista };
         });
 
-        // SUMAMOS EL MONTO LIBRE DE LIBRERÍA
         const valorLibreria = parseInt(adicionalLibreria) || 0;
         acumuladoMayorista += valorLibreria;
 
@@ -142,12 +139,69 @@ export const CalculadoraCotizaciones = () => {
             detalles: detallesPorArchivo, 
             resumen: resumenDetallado, 
             totalSinRedondear: acumuladoMayorista,
-            montoLibreria: valorLibreria // Lo guardamos para mostrarlo en el ticket
+            montoLibreria: valorLibreria 
         };
     };
 
     const resultadoAutomatico = useMemo(() => realizarCalculos(listaArchivos, tarifas, montoLibreria), [listaArchivos, tarifas, montoLibreria]);
     const datosEnPantalla = modoAutomatico ? resultadoAutomatico : resultadoManual;
+
+    // INTEGRACIÓN DE SWEETALERT2 PARA GUARDAR
+    const guardarOrdenEnBaseDeDatos = async (metodoPago, totalCobrado) => {
+        const esModoOscuro = document.documentElement.classList.contains('dark');
+        
+        try {
+            const nuevaOrden = {
+                fechaCreacion: new Date().toISOString(),
+                metodoPago: metodoPago,
+                totalCobrado: totalCobrado,
+                resumenPedido: datosEnPantalla.resumen,
+                montoLibreria: datosEnPantalla.montoLibreria
+            };
+
+            const { error } = await clienteSupabase.from('ordenesProduccion').insert([nuevaOrden]);
+            if (error) throw error;
+
+            setListaArchivos([{ id: Date.now(), paginas: '', tipoServicio: 'a4Color', esDobleFaz: false, anillado: false }]);
+            setMontoLibreria('');
+            setResultadoManual(null);
+            
+            Swal.fire({
+                icon: 'success',
+                title: '¡Orden guardada!',
+                text: 'La comanda se registró exitosamente.',
+                toast: true,
+                position: 'bottom-end',
+                showConfirmButton: false,
+                timer: 3000,
+                timerProgressBar: true,
+                background: esModoOscuro ? '#1F2937' : '#ffffff',
+                color: esModoOscuro ? '#ffffff' : '#1F2937',
+                customClass: {
+                    popup: 'rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700',
+                    title: 'font-bold'
+                }
+            });
+            
+        } catch (error) {
+            console.error("Error al guardar la orden:", error);
+            Swal.fire({
+                icon: 'error',
+                title: 'Error de conexión',
+                text: 'Hubo un problema al guardar la orden.',
+                toast: true,
+                position: 'bottom-end',
+                showConfirmButton: false,
+                timer: 4000,
+                background: esModoOscuro ? '#1F2937' : '#ffffff',
+                color: esModoOscuro ? '#ffffff' : '#1F2937',
+                customClass: {
+                    popup: 'rounded-2xl shadow-xl border border-red-100 dark:border-red-900',
+                    title: 'font-bold'
+                }
+            });
+        }
+    };
 
     const manejarCambioArchivo = (id, campo, valor) => {
         if (!modoAutomatico) setResultadoManual(null);
@@ -198,35 +252,6 @@ export const CalculadoraCotizaciones = () => {
 
     const procesarCalculoManual = () => setResultadoManual(realizarCalculos(listaArchivos, tarifas, montoLibreria));
 
-    // NUEVA FUNCIÓN: Para guardar la orden
-    const guardarOrdenEnBaseDeDatos = async (metodoPago, totalCobrado) => {
-        try {
-            const nuevaOrden = {
-                fechaCreacion: new Date().toISOString(),
-                metodoPago: metodoPago,
-                totalCobrado: totalCobrado,
-                resumenPedido: datosEnPantalla.resumen,
-                montoLibreria: datosEnPantalla.montoLibreria
-            };
-
-            const { error } = await clienteSupabase
-                .from('ordenesProduccion')
-                .insert([nuevaOrden]);
-
-            if (error) throw error;
-
-            // Si se guardó con éxito, reseteamos la calculadora a cero
-            setListaArchivos([{ id: Date.now(), paginas: '', tipoServicio: 'a4Color', esDobleFaz: false, anillado: false }]);
-            setMontoLibreria('');
-            setResultadoManual(null);
-            
-            alert('¡Orden guardada correctamente!'); // Opcional: Cambiar por una notificación más linda luego
-        } catch (error) {
-            console.error("Error al guardar la orden:", error);
-            alert("Hubo un error al guardar la orden.");
-        }
-    };
-
     if (cargandoTarifas) return <div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-empresa"></div></div>;
 
     return (
@@ -249,7 +274,6 @@ export const CalculadoraCotizaciones = () => {
                     ))}
                 </div>
 
-                {/* NUEVO INPUT: Adicional de Librería / Otros */}
                 <div className="bg-white dark:bg-gray-800 rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-gray-700 flex justify-between items-center gap-4 transition-all hover:border-empresa/30 mb-2 mt-4">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-2xl bg-empresa/10 flex items-center justify-center text-empresa">
@@ -262,13 +286,7 @@ export const CalculadoraCotizaciones = () => {
                     </div>
                     <div className="relative w-32 md:w-40">
                         <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 font-black">$</span>
-                        <input 
-                            type="number" 
-                            className="w-full h-12 pl-8 pr-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-2xl font-black text-lg text-gray-800 dark:text-white outline-none focus:border-empresa text-right transition-all" 
-                            value={montoLibreria} 
-                            onChange={(e) => manejarCambioLibreria(e.target.value)} 
-                            placeholder="0" 
-                        />
+                        <input type="number" className="w-full h-12 pl-8 pr-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-2xl font-black text-lg text-gray-800 dark:text-white outline-none focus:border-empresa text-right transition-all" value={montoLibreria} onChange={(e) => manejarCambioLibreria(e.target.value)} placeholder="0" />
                     </div>
                 </div>
 
@@ -277,10 +295,7 @@ export const CalculadoraCotizaciones = () => {
                 )}
             </div>
 
-            <ResumenOrden 
-                datosEnPantalla={datosEnPantalla} 
-                guardarOrdenEnBaseDeDatos={guardarOrdenEnBaseDeDatos}
-            />
+            <ResumenOrden datosEnPantalla={datosEnPantalla} guardarOrdenEnBaseDeDatos={guardarOrdenEnBaseDeDatos} />
         </div>
     );
 };
