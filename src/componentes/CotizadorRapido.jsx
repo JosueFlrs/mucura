@@ -38,12 +38,20 @@ export const CotizadorRapido = () => {
             return escala.precioMasDe200;
         };
 
+        // LÓGICA DINÁMICA DE ANILLADO PARA EL COTIZADOR
+        const obtenerCostoAnillado = (cant) => {
+            if (cant <= 100) return 1500;
+            if (cant <= 300) return 1700;
+            return 1900;
+        };
+
         const costoUnitario = obtenerCostoUnitario(cantidad);
         const subtotalExacto = cantidad * costoUnitario;
         const totalRedondeado = Math.ceil(subtotalExacto / 100) * 100;
         
-        // Cálculo con anillado
-        const exactoConAnillado = subtotalExacto + 1500;
+        // Sumamos el valor dinámico del anillado
+        const costoAnilladoActual = obtenerCostoAnillado(cantidad);
+        const exactoConAnillado = subtotalExacto + costoAnilladoActual;
         const redondeadoConAnillado = Math.ceil(exactoConAnillado / 100) * 100;
 
         // Cálculos Efectivo (-13%)
@@ -55,7 +63,8 @@ export const CotizadorRapido = () => {
             totalRedondeado,
             redondeadoConAnillado,
             efectivoSolo,
-            efectivoConAnillado
+            efectivoConAnillado,
+            costoAnilladoActual // Lo pasamos por si queremos mostrarlo
         };
     };
 
@@ -75,7 +84,6 @@ export const CotizadorRapido = () => {
     return (
         <div className="max-w-6xl mx-auto flex flex-col gap-8 animate-fade-in">
             
-            {/* Buscador Central */}
             <div className="bg-white dark:bg-gray-800 rounded-3xl p-8 md:p-12 shadow-sm border border-gray-100 dark:border-gray-700 text-center">
                 <h2 className="text-3xl font-black text-gray-800 dark:text-white mb-2 tracking-tight">Consulta Rápida de Precios</h2>
                 <p className="text-gray-500 dark:text-gray-400 mb-8">Ingrese la cantidad de páginas para ver todas las opciones al instante</p>
@@ -87,13 +95,8 @@ export const CotizadorRapido = () => {
                         value={cantidadPaginas}
                         onChange={(e) => {
                             const valorIngresado = e.target.value;
-                            // Si borra todo, permitimos que el input quede vacío
-                            if (valorIngresado === '') {
-                                setCantidadPaginas('');
-                            } else {
-                                // Si hay un número, evitamos que sea negativo
-                                setCantidadPaginas(Math.max(0, parseInt(valorIngresado)));
-                            }
+                            if (valorIngresado === '') setCantidadPaginas('');
+                            else setCantidadPaginas(Math.max(0, parseInt(valorIngresado)));
                         }}
                         placeholder="0"
                         autoFocus
@@ -104,7 +107,6 @@ export const CotizadorRapido = () => {
                 </div>
             </div>
 
-            {/* Grilla de Resultados */}
             {parseInt(cantidadPaginas) > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
                     {escenarios.map((escenario) => (
@@ -118,7 +120,6 @@ export const CotizadorRapido = () => {
 
                             <div className="p-6 flex-grow bg-white dark:bg-gray-900 flex flex-col gap-4">
                                 
-                                {/* Opción Solo Impresión */}
                                 <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700">
                                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Solo Impresión</p>
                                     <div className="flex justify-between items-end mb-2">
@@ -131,8 +132,12 @@ export const CotizadorRapido = () => {
                                     </div>
                                 </div>
 
-                                {/* Opción Con Anillado */}
-                                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-800/30">
+                                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-800/30 relative">
+                                    {/* Pequeña etiqueta que le avisa al operario de cuánto es el anillado */}
+                                    <div className="absolute -top-2 -right-2 bg-blue-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-lg shadow-sm">
+                                        + ${escenario.datos?.costoAnilladoActual}
+                                    </div>
+
                                     <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mb-1">Impresión + Anillado</p>
                                     <div className="flex justify-between items-end mb-2">
                                         <span className="text-xs text-gray-500 font-medium">Lista:</span>

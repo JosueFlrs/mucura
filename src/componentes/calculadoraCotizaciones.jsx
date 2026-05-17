@@ -17,6 +17,7 @@ export const CalculadoraCotizaciones = () => {
         { id: Date.now(), paginas: '', tipoServicio: 'a4Color', esDobleFaz: false, anillado: false }
     ]);
 
+    const [anilladosExtra, setAnilladosExtra] = useState({ chico: 0, mediano: 0, grande: 0 });
     const [resultadoManual, setResultadoManual] = useState(null);
 
     useEffect(() => {
@@ -39,13 +40,20 @@ export const CalculadoraCotizaciones = () => {
         obtenerTarifas();
     }, []);
 
-    const realizarCalculos = (archivos, tablaTarifas) => {
+    const realizarCalculos = (archivos, tablaTarifas, extras) => {
         let acumuladoMayorista = 0;
         const agrupacionPorVolumen = {};
         const resumenDetallado = {
             cantidadArchivosImpresos: 0,
             cantidadAnillados: 0,
             paginas: { a4ColorSimple: 0, a4ColorDobleFaz: 0, a4BlancoYNegroSimple: 0, a4BlancoYNegroDobleFaz: 0 }
+        };
+
+        const obtenerCostoAnillado = (cantidadPaginas) => {
+            if (cantidadPaginas === 0) return 1500; 
+            if (cantidadPaginas <= 100) return 1500;
+            if (cantidadPaginas <= 300) return 1700;
+            return 1900;
         };
 
         archivos.forEach(archivo => {
@@ -69,7 +77,9 @@ export const CalculadoraCotizaciones = () => {
             const cantidad = parseInt(archivo.paginas) || 0;
             const tieneAnillado = archivo.anillado;
             if (cantidad <= 0 && !tieneAnillado) return null;
+
             let subtotalImpresionMayorista = 0, subtotalImpresionMinorista = 0, precioUnitarioMayorista = 0;
+
             if (cantidad > 0) {
                 let claveTarifa = archivo.tipoServicio + (archivo.esDobleFaz ? 'DobleFaz' : '');
                 const escala = tablaTarifas[claveTarifa];
@@ -87,23 +97,36 @@ export const CalculadoraCotizaciones = () => {
                     subtotalImpresionMayorista = cantidad * precioUnitarioMayorista;
                 }
             }
-            const costoAnillado = tieneAnillado ? 1500 : 0;
+
+            const costoAnillado = tieneAnillado ? obtenerCostoAnillado(cantidad) : 0;
+            const totalMinorista = subtotalImpresionMinorista + costoAnillado;
             const totalMayorista = subtotalImpresionMayorista + costoAnillado;
+            
             acumuladoMayorista += totalMayorista;
+
             return {
-                precioUnitarioMayorista, subtotalImpresion: subtotalImpresionMayorista, costoAnillado,
-                totalMinorista: subtotalImpresionMinorista + costoAnillado, totalMayorista
+                precioUnitarioMayorista,
+                subtotalImpresion: subtotalImpresionMayorista,
+                costoAnillado,
+                totalMinorista,
+                totalMayorista
             };
         });
+
+        const costoExtras = (extras.chico * 1500) + (extras.mediano * 1700) + (extras.grande * 1900);
+        acumuladoMayorista += costoExtras;
+        resumenDetallado.cantidadAnillados += (extras.chico + extras.mediano + extras.grande);
+
         return { detalles: detallesPorArchivo, resumen: resumenDetallado, totalSinRedondear: acumuladoMayorista };
     };
 
-    const resultadoAutomatico = useMemo(() => realizarCalculos(listaArchivos, tarifas), [listaArchivos, tarifas]);
+    const resultadoAutomatico = useMemo(() => realizarCalculos(listaArchivos, tarifas, anilladosExtra), [listaArchivos, tarifas, anilladosExtra]);
     const datosEnPantalla = modoAutomatico ? resultadoAutomatico : resultadoManual;
 
     const manejarCambioArchivo = (id, campo, valor) => {
         if (!modoAutomatico) setResultadoManual(null);
         let valorFinal = (campo === 'paginas' && valor < 0) ? 0 : valor;
+
         setListaArchivos(listaActual => {
             const nuevaLista = listaActual.map(archivo => archivo.id === id ? { ...archivo, [campo]: valorFinal } : archivo);
             const archivoEditado = nuevaLista.find(a => a.id === id);
@@ -120,6 +143,14 @@ export const CalculadoraCotizaciones = () => {
         });
     };
 
+    const manejarAnilladoExtra = (tipo, operacion) => {
+        if (!modoAutomatico) setResultadoManual(null);
+        setAnilladosExtra(actual => ({
+            ...actual,
+            [tipo]: operacion === 'sumar' ? actual[tipo] + 1 : Math.max(0, actual[tipo] - 1)
+        }));
+    };
+
     const resetearArchivo = (id) => {
         if (!modoAutomatico) setResultadoManual(null);
         setListaArchivos(listaActual => {
@@ -132,12 +163,11 @@ export const CalculadoraCotizaciones = () => {
         });
     };
 
-    const procesarCalculoManual = () => setResultadoManual(realizarCalculos(listaArchivos, tarifas));
+    const procesarCalculoManual = () => setResultadoManual(realizarCalculos(listaArchivos, tarifas, anilladosExtra));
 
     if (cargandoTarifas) return <div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-empresa"></div></div>;
 
     return (
-        /* CAMBIO AQUÍ: max-w-[1270px] asegura que el ancho sea el mismo que en una pantalla de 1350px (restando el Sidebar) */
         <div className="w-full max-w-[1270px] mx-auto flex flex-col lg:flex-row gap-6 items-start transition-all duration-500 pb-20">
 
             {/* Columna Izquierda: Área de Trabajo */}
@@ -154,7 +184,7 @@ export const CalculadoraCotizaciones = () => {
                     </div>
                 </div>
 
-                <div className="space-y-4 mb-8">
+                <div className="space-y-4 mb-2">
                     {listaArchivos.map((archivo, indice) => (
                         <FilaArchivo 
                             key={archivo.id} 
@@ -166,15 +196,21 @@ export const CalculadoraCotizaciones = () => {
                             resetearArchivo={resetearArchivo}
                         />
                     ))}
-                    {!modoAutomatico && (
-                        <button onClick={procesarCalculoManual} className="w-full bg-gray-900 dark:bg-gray-700 text-white font-black py-5 rounded-3xl shadow-lg transition-all text-lg uppercase tracking-widest mt-4">Actualizar Precios</button>
-                    )}
                 </div>
+
+                {/* Quitamos la caja de extras de acá para maximizar espacio limpio a la izquierda */}
+
+                {!modoAutomatico && (
+                    <button onClick={procesarCalculoManual} className="w-full bg-gray-900 dark:bg-gray-700 text-white font-black py-5 rounded-3xl shadow-lg transition-all text-lg uppercase tracking-widest mt-4">Actualizar Precios</button>
+                )}
             </div>
 
+            {/* ENVIAMOS LAS PROPS DE EXTRAS AL SIDEBAR */}
             <ResumenOrden 
                 datosEnPantalla={datosEnPantalla} 
                 listaArchivos={listaArchivos} 
+                anilladosExtra={anilladosExtra}
+                manejarAnilladoExtra={manejarAnilladoExtra}
             />
         </div>
     );

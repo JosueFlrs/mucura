@@ -1,13 +1,11 @@
 // src/componentes/ResumenOrden.jsx
 
-export const ResumenOrden = ({ datosEnPantalla, listaArchivos }) => {
+export const ResumenOrden = ({ datosEnPantalla, listaArchivos, anilladosExtra, manejarAnilladoExtra }) => {
     const totalBase = datosEnPantalla?.totalSinRedondear || 0;
-    
-    // Cálculos de Digital
+
     const totalDigitalExacto = totalBase;
     const totalDigitalRedondeado = Math.ceil(totalDigitalExacto / 100) * 100;
-    
-    // Cálculos de Efectivo
+
     const montoDescuentoEfectivo = totalBase * 0.13;
     const totalEfectivoExacto = totalBase - montoDescuentoEfectivo;
     const totalEfectivoRedondeado = Math.ceil(totalEfectivoExacto / 100) * 100;
@@ -20,7 +18,7 @@ export const ResumenOrden = ({ datosEnPantalla, listaArchivos }) => {
                     Comanda de Producción
                 </h3>
 
-                <div className="space-y-3 mb-6 flex-grow">
+                <div className="space-y-3 flex-grow">
                     {datosEnPantalla ? (
                         <>
                             {datosEnPantalla.resumen.cantidadArchivosImpresos > 0 && (
@@ -39,7 +37,7 @@ export const ResumenOrden = ({ datosEnPantalla, listaArchivos }) => {
                             {(datosEnPantalla.resumen.paginas.a4ColorSimple > 0 || datosEnPantalla.resumen.paginas.a4ColorDobleFaz > 0 || datosEnPantalla.resumen.paginas.a4BlancoYNegroSimple > 0 || datosEnPantalla.resumen.paginas.a4BlancoYNegroDobleFaz > 0) && (
                                 <div className="mt-4 pt-4 border-t border-dashed border-gray-200 dark:border-gray-700">
                                     <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-3">Detalle de Páginas</p>
-                                    
+
                                     {datosEnPantalla.resumen.paginas.a4ColorSimple > 0 && (
                                         <div className="flex justify-between items-center text-xs mb-2">
                                             <span className="text-gray-600 dark:text-gray-400">A4 Color <span className="text-[10px] text-gray-400">(Simple)</span></span>
@@ -74,9 +72,10 @@ export const ResumenOrden = ({ datosEnPantalla, listaArchivos }) => {
                     )}
                 </div>
 
-                <div className="mt-auto pt-5 border-t border-gray-100 dark:border-gray-700">
+                {/* OPCIONES DE PAGO */}
+                <div className="mt-6 pt-5 border-t border-gray-100 dark:border-gray-700">
                     <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-3">Opciones de Pago</p>
-                    
+
                     <div className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-4 rounded-2xl mb-3 flex justify-between items-center">
                         <div>
                             <span className="text-xs font-bold text-gray-600 dark:text-gray-300 block">Transferencia / Débito</span>
@@ -93,7 +92,7 @@ export const ResumenOrden = ({ datosEnPantalla, listaArchivos }) => {
                         <div className="absolute top-0 right-0 p-4 opacity-10 transform group-hover:scale-110 transition-transform duration-500">
                             <svg className="w-24 h-24 -mr-6 -mt-6" fill="currentColor" viewBox="0 0 20 20"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" /><path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd" /></svg>
                         </div>
-                        
+
                         <div className="flex justify-between items-start relative z-10 mb-2">
                             <span className="text-[11px] uppercase tracking-widest font-bold opacity-90">Efectivo (-13%)</span>
                             {montoDescuentoEfectivo > 0 && (
@@ -102,7 +101,7 @@ export const ResumenOrden = ({ datosEnPantalla, listaArchivos }) => {
                                 </span>
                             )}
                         </div>
-                        
+
                         <div className="flex justify-between items-end relative z-10 mt-2">
                             <div className="pb-1">
                                 {totalEfectivoExacto !== totalEfectivoRedondeado && (
@@ -120,6 +119,39 @@ export const ResumenOrden = ({ datosEnPantalla, listaArchivos }) => {
                         </div>
                     </div>
                     <p className="text-center text-[9px] text-gray-400 dark:text-gray-500 uppercase tracking-widest mt-4 italic">Redondeo automático incluido</p>
+                </div>
+                {/* UBICACIÓN NUEVA: ANILLADOS EXTRA DENTRO DEL SIDEBAR */}
+                <div className="mt-4 pt-4 border-t border-dashed border-gray-200 dark:border-gray-700">
+                    <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-2.5">Anillados Extras / Agrupados</p>
+                    <div className="grid grid-cols-3 gap-2">
+                        {/* Chico */}
+                        <div className="flex flex-col items-center bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700/70 rounded-2xl py-1.5 px-1">
+                            <span className="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase">Chico</span>
+                            <div className="flex items-center gap-2 mt-1">
+                                <button onClick={() => manejarAnilladoExtra('chico', 'restar')} className="w-5 h-5 rounded-full flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-red-500 hover:shadow-sm font-black text-xs transition-colors">-</button>
+                                <span className="text-xs font-black text-gray-800 dark:text-white">{anilladosExtra.chico}</span>
+                                <button onClick={() => manejarAnilladoExtra('chico', 'sumar')} className="w-5 h-5 rounded-full flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-green-500 hover:shadow-sm font-black text-xs transition-colors">+</button>
+                            </div>
+                        </div>
+                        {/* Mediano */}
+                        <div className="flex flex-col items-center bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700/70 rounded-2xl py-1.5 px-1">
+                            <span className="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase">Medio</span>
+                            <div className="flex items-center gap-2 mt-1">
+                                <button onClick={() => manejarAnilladoExtra('mediano', 'restar')} className="w-5 h-5 rounded-full flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-red-500 hover:shadow-sm font-black text-xs transition-colors">-</button>
+                                <span className="text-xs font-black text-gray-800 dark:text-white">{anilladosExtra.mediano}</span>
+                                <button onClick={() => manejarAnilladoExtra('mediano', 'sumar')} className="w-5 h-5 rounded-full flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-green-500 hover:shadow-sm font-black text-xs transition-colors">+</button>
+                            </div>
+                        </div>
+                        {/* Grande */}
+                        <div className="flex flex-col items-center bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700/70 rounded-2xl py-1.5 px-1">
+                            <span className="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase">Grande</span>
+                            <div className="flex items-center gap-2 mt-1">
+                                <button onClick={() => manejarAnilladoExtra('grande', 'restar')} className="w-5 h-5 rounded-full flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-red-500 hover:shadow-sm font-black text-xs transition-colors">-</button>
+                                <span className="text-xs font-black text-gray-800 dark:text-white">{anilladosExtra.grande}</span>
+                                <button onClick={() => manejarAnilladoExtra('grande', 'sumar')} className="w-5 h-5 rounded-full flex items-center justify-center text-gray-500 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 hover:text-green-500 hover:shadow-sm font-black text-xs transition-colors">+</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
