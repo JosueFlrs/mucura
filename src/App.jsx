@@ -17,6 +17,9 @@ function App() {
         return pantallaGuardada !== null ? pantallaGuardada : 'calculadora';
     });
 
+    // AQUÍ ESTÁ EL PUENTE DE DATOS
+    const [datosPrecargados, setDatosPrecargados] = useState(null);
+
     useEffect(() => {
         if (temaOscuro) {
             document.documentElement.classList.add('dark');
@@ -33,17 +36,31 @@ function App() {
 
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex font-sans">
-
-            <Sidebar
-                pantallaActiva={pantallaActiva}
-                setPantallaActiva={setPantallaActiva}
-                temaOscuro={temaOscuro}
-                setTemaOscuro={setTemaOscuro}
+            
+            <Sidebar 
+                pantallaActiva={pantallaActiva} 
+                setPantallaActiva={setPantallaActiva} 
+                temaOscuro={temaOscuro} 
+                setTemaOscuro={setTemaOscuro} 
             />
 
             <main className="flex-1 w-full overflow-y-auto overflow-x-hidden p-4 md:p-8 lg:p-10 h-screen pb-24 md:pb-8 bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
-                {pantallaActiva === 'calculadora' && <CalculadoraCotizaciones />}
-                {pantallaActiva === 'cotizadorRapido' && <CotizadorRapido />}
+                
+                {/* LE PASAMOS EL PUENTE A LA CALCULADORA Y AL COTIZADOR */}
+                {pantallaActiva === 'calculadora' && (
+                    <CalculadoraCotizaciones 
+                        datosPrecargados={datosPrecargados} 
+                        setDatosPrecargados={setDatosPrecargados} 
+                    />
+                )}
+                
+                {pantallaActiva === 'cotizadorRapido' && (
+                    <CotizadorRapido 
+                        setPantallaActiva={setPantallaActiva} 
+                        setDatosPrecargados={setDatosPrecargados} 
+                    />
+                )}
+
                 {pantallaActiva === 'configuracion' && <Configuracion />}
                 {pantallaActiva === 'dashboard' && <DashboardOrdenes />}
             </main>

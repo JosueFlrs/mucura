@@ -6,11 +6,10 @@ import Swal from 'sweetalert2';
 
 export const SIN_DOBLE_FAZ = ['a4Fotografico120', 'a4Fotografico200', 'a4Fotografico250', 'a4FotoAdhesivo135', 'sa3OppAdhesivo', 'a4OppAdhesivo', 'sa3IlustracionAdhesivo', 'a4IlustracionAdhesivo'];
 export const CON_ANILLADO = ['a4Color', 'a4BlancoYNegro', 'a4ObraColor'];
-
-// NUEVA CONSTANTE: Le avisa a la matemática qué papeles saltan a los 1, 5 y 10.
 export const USA_ESCALA_BAJA = ['a4ObraColor', 'a3ObraColor', 'a4Ilustracion115', 'sa3Ilustracion115', 'a4Ilustracion200', 'sa3Ilustracion200', 'a4Ilustracion300', 'sa3Ilustracion300', 'a4OppAdhesivo', 'sa3OppAdhesivo', 'a4IlustracionAdhesivo', 'sa3IlustracionAdhesivo'];
 
-export const CalculadoraCotizaciones = () => {
+// RECIBIMOS EL PUENTE DE DATOS
+export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados }) => {
     const [tarifas, setTarifas] = useState({});
     const [cargandoTarifas, setCargandoTarifas] = useState(true);
     
@@ -23,6 +22,24 @@ export const CalculadoraCotizaciones = () => {
     const [listaArchivos, setListaArchivos] = useState([{ id: Date.now(), paginas: '', tipoServicio: 'a4Color', esDobleFaz: false, anillado: false }]);
     const [montoLibreria, setMontoLibreria] = useState('');
     const [resultadoManual, setResultadoManual] = useState(null);
+
+    // ACTUALIZAMOS ESTE USEEFFECT
+    useEffect(() => {
+        if (datosPrecargados) {
+            // Recibimos la precarga y nos aseguramos de que siempre haya una fila vacía al final
+            const listaConVacia = [...datosPrecargados, { 
+                id: Date.now() + Math.random(), 
+                paginas: '', 
+                tipoServicio: 'a4Color', 
+                esDobleFaz: false, 
+                anillado: false 
+            }];
+            
+            setListaArchivos(listaConVacia);
+            setModoAutomatico(true); 
+            setDatosPrecargados(null); 
+        }
+    }, [datosPrecargados, setDatosPrecargados]);
 
     useEffect(() => { window.localStorage.setItem('preferenciaModoAutomatico', JSON.stringify(modoAutomatico)); }, [modoAutomatico]);
 
@@ -76,17 +93,13 @@ export const CalculadoraCotizaciones = () => {
                 let escalaUsar = (archivo.esDobleFaz && tarifaDobleFaz) ? tarifaDobleFaz : tarifaBase;
 
                 if (escalaUsar) {
-                    
-                    // CORRECCIÓN MATEMÁTICA: Discriminamos la lógica según el papel
                     const obtenerCostoUnitario = (cant) => {
                         if (USA_ESCALA_BAJA.includes(archivo.tipoServicio)) {
-                            // Salto de escalas especiales (1, 5, 10)
                             if (cant <= 1) return escalaUsar.precioHasta50;
                             if (cant <= 5) return escalaUsar.precioHasta100;
                             if (cant <= 10) return escalaUsar.precioHasta200;
                             return escalaUsar.precioMasDe200;
                         } else {
-                            // Salto de escalas clásicas (50, 100, 200)
                             if (cant <= 50) return escalaUsar.precioHasta50;
                             if (cant <= 100) return escalaUsar.precioHasta100;
                             if (cant <= 200) return escalaUsar.precioHasta200;
