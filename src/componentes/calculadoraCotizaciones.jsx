@@ -25,12 +25,7 @@ export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados 
     useEffect(() => {
         if (datosPrecargados) {
             const listaConVacia = [...datosPrecargados, { 
-                id: Date.now() + Math.random(), 
-                paginas: '', 
-                copias: 1,
-                tipoServicio: 'a4Color', 
-                esDobleFaz: false, 
-                anillado: false 
+                id: Date.now() + Math.random(), paginas: '', copias: 1, tipoServicio: 'a4Color', esDobleFaz: false, anillado: false 
             }];
             setListaArchivos(listaConVacia);
             setModoAutomatico(true); 
@@ -111,7 +106,6 @@ export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados 
                         }
                     };
 
-                    // El "Minorista" (Lista) ahora evalúa el precio de un SOLO juego sin los beneficios del volumen
                     let unitarioMinorista = obtenerCostoUnitario(paginasUnidad);
                     precioUnitarioMayorista = obtenerCostoUnitario(totalPaginasDelGrupo);
 
@@ -141,8 +135,7 @@ export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados 
             return { 
                 precioUnitarioMayorista, subtotalImpresion: subtotalImpresionMayorista, 
                 costoAnillado: costoAnilladoTotal, totalMinorista, totalMayorista,
-                copias, paginasUnidad, totalPaginas,
-                totalMinoristaUnJuego, totalMayoristaUnJuego // Enviamos estos datos nuevos a la tarjeta
+                copias, paginasUnidad, totalPaginas, totalMinoristaUnJuego, totalMayoristaUnJuego 
             };
         });
 
@@ -158,9 +151,18 @@ export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados 
     const guardarOrdenEnBaseDeDatos = async (metodoPago, totalCobrado) => {
         const esModoOscuro = document.documentElement.classList.contains('dark');
         try {
+            // NUEVO: Filtramos los archivos válidos para guardarlos intactos en el historial
+            const archivosValidos = listaArchivos.filter(a => parseInt(a.paginas) > 0 || a.anillado);
+
             const nuevaOrden = {
-                fechaCreacion: new Date().toISOString(), metodoPago, totalCobrado,
-                resumenPedido: datosEnPantalla.resumen, montoLibreria: datosEnPantalla.montoLibreria
+                fechaCreacion: new Date().toISOString(), 
+                metodoPago, 
+                totalCobrado,
+                resumenPedido: {
+                    ...datosEnPantalla.resumen,
+                    archivosOriginales: archivosValidos // Inyectamos el desglose exacto
+                }, 
+                montoLibreria: datosEnPantalla.montoLibreria
             };
             const { error } = await clienteSupabase.from('ordenesProduccion').insert([nuevaOrden]);
             if (error) throw error;

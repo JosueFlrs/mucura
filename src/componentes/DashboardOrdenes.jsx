@@ -40,7 +40,6 @@ export const DashboardOrdenes = () => {
         }
     };
 
-    // INTEGRACIÓN DE SWEETALERT2 PARA ELIMINAR
     const eliminarOrden = async (id, evento) => {
         evento.stopPropagation();
         const esModoOscuro = document.documentElement.classList.contains('dark');
@@ -66,53 +65,26 @@ export const DashboardOrdenes = () => {
         if (!confirmacionEliminar.isConfirmed) return;
 
         try {
-            const { error } = await clienteSupabase
-                .from('ordenesProduccion')
-                .delete()
-                .eq('id', id);
-
+            const { error } = await clienteSupabase.from('ordenesProduccion').delete().eq('id', id);
             if (error) throw error;
 
             setOrdenes(ordenesActuales => ordenesActuales.filter(orden => orden.id !== id));
             
             Swal.fire({
-                icon: 'success',
-                title: 'Eliminada',
-                text: 'La orden ha sido borrada del historial.',
-                toast: true,
-                position: 'bottom-end',
-                showConfirmButton: false,
-                timer: 3000,
-                background: esModoOscuro ? '#1f2937' : '#ffffff',
-                color: esModoOscuro ? '#ffffff' : '#1f2937',
-                customClass: {
-                    popup: 'rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700'
-                }
+                icon: 'success', title: 'Eliminada', text: 'La orden ha sido borrada del historial.',
+                toast: true, position: 'bottom-end', showConfirmButton: false, timer: 3000,
+                background: esModoOscuro ? '#1f2937' : '#ffffff', color: esModoOscuro ? '#ffffff' : '#1f2937',
+                customClass: { popup: 'rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700' }
             });
         } catch (error) {
             console.error("error al intentar eliminar la orden:", error);
-            Swal.fire({
-                icon: 'error',
-                title: 'Error',
-                text: 'Hubo un error en el servidor al intentar borrar la orden.',
-                toast: true,
-                position: 'bottom-end',
-                showConfirmButton: false,
-                timer: 4000,
-                background: esModoOscuro ? '#1f2937' : '#ffffff',
-                color: esModoOscuro ? '#ffffff' : '#1f2937',
-                customClass: {
-                    popup: 'rounded-2xl shadow-xl'
-                }
-            });
+            Swal.fire({ icon: 'error', title: 'Error', text: 'Hubo un error en el servidor.', toast: true, position: 'bottom-end', showConfirmButton: false, timer: 4000, background: esModoOscuro ? '#1f2937' : '#ffffff', color: esModoOscuro ? '#ffffff' : '#1f2937', customClass: { popup: 'rounded-2xl shadow-xl' }});
         }
     };
 
     const formatearFecha = (fechaISO) => {
         const fecha = new Date(fechaISO);
-        return fecha.toLocaleDateString('es-AR', {
-            day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
-        });
+        return fecha.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
     };
 
     const totalRecaudado = ordenes.reduce((acumulador, orden) => acumulador + orden.totalCobrado, 0);
@@ -157,7 +129,7 @@ export const DashboardOrdenes = () => {
                                         {formatearFecha(orden.fechaCreacion)}
                                     </td>
                                     <td className="p-5 text-xs text-gray-500 dark:text-gray-400">
-                                        <span className="font-bold">{orden.resumenPedido?.cantidadArchivosImpresos || 0}</span> PDFs | <span className="font-bold">{orden.resumenPedido?.cantidadAnillados || 0}</span> Anillados
+                                        <span className="font-bold">{orden.resumenPedido?.cantidadArchivosImpresos || 0}</span> Juegos | <span className="font-bold">{orden.resumenPedido?.cantidadAnillados || 0}</span> Anillados
                                     </td>
                                     <td className="p-5 text-sm text-gray-600 dark:text-gray-300">
                                         ${(orden.montoLibreria || 0).toLocaleString('es-AR')}
@@ -176,9 +148,7 @@ export const DashboardOrdenes = () => {
                                             className="p-2 text-gray-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl transition-all group"
                                             title="Eliminar del historial"
                                         >
-                                            <svg className="w-5 h-5 transform group-hover:scale-110 duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                            </svg>
+                                            <svg className="w-5 h-5 transform group-hover:scale-110 duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                         </button>
                                     </td>
                                 </tr>
@@ -204,7 +174,7 @@ export const DashboardOrdenes = () => {
                             <svg className="w-4 h-4 font-bold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
 
-                        <div className="p-6 md:p-8">
+                        <div className="p-6 md:p-8 max-h-[85vh] overflow-y-auto hide-scrollbar">
                             <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-1 flex items-center gap-2">
                                 <svg className="w-5 h-5 text-empresa" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                                 Detalle de la Orden
@@ -212,9 +182,42 @@ export const DashboardOrdenes = () => {
                             <p className="text-xs text-gray-400 font-medium mb-6">{formatearFecha(ordenSeleccionada.fechaCreacion)}</p>
 
                             <div className="space-y-4">
+                                
+                                {/* NUEVO: DESGLOSE EXACTO POR ARCHIVO Y JUEGOS (Solo si existe el dato en la BD) */}
+                                {ordenSeleccionada.resumenPedido?.archivosOriginales && ordenSeleccionada.resumenPedido.archivosOriginales.length > 0 && (
+                                    <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-700">
+                                        <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-3">Detalle Exacto por Archivo</p>
+                                        <div className="space-y-2">
+                                            {ordenSeleccionada.resumenPedido.archivosOriginales.map((archivo, idx) => {
+                                                const nombreBase = NOMBRES_SERVICIOS[archivo.tipoServicio] || archivo.tipoServicio;
+                                                const noAceptaDobleFaz = SIN_DOBLE_FAZ.includes(archivo.tipoServicio);
+                                                
+                                                return (
+                                                    <div key={idx} className="flex justify-between items-center text-sm bg-white dark:bg-gray-800 p-2.5 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
+                                                        <div className="flex flex-col">
+                                                            <span className="font-bold text-gray-800 dark:text-gray-200">
+                                                                {archivo.paginas || 0} págs <span className="text-gray-400 font-normal mx-1">x</span> <span className="text-empresa">{archivo.copias || 1} Juegos</span>
+                                                            </span>
+                                                            <span className="text-[10px] text-gray-500 mt-0.5">
+                                                                {nombreBase} {!noAceptaDobleFaz && (archivo.esDobleFaz ? '(Doble)' : '(Simple)')}
+                                                            </span>
+                                                        </div>
+                                                        {archivo.anillado && (
+                                                            <span className="text-[9px] bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-1 rounded-md font-bold uppercase tracking-widest">
+                                                                Anillado
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* TOTALES AGRUPADOS */}
                                 {ordenSeleccionada.resumenPedido?.paginas && Object.keys(ordenSeleccionada.resumenPedido.paginas).length > 0 && (
                                     <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-700">
-                                        <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-3">Impresiones</p>
+                                        <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-3">Páginas Totales a Imprimir</p>
                                         {Object.entries(ordenSeleccionada.resumenPedido.paginas).map(([clave, cantidad]) => {
                                             const [tipo, dobleFazStr] = clave.split('-');
                                             const esDobleFaz = dobleFazStr === 'true';
@@ -236,7 +239,7 @@ export const DashboardOrdenes = () => {
                                 <div className="space-y-2 px-1">
                                     {ordenSeleccionada.resumenPedido?.cantidadAnillados > 0 && (
                                         <div className="flex justify-between items-center text-sm">
-                                            <span className="text-gray-500 dark:text-gray-400 font-medium">Servicios de Anillado</span>
+                                            <span className="text-gray-500 dark:text-gray-400 font-medium">Anillados (Total)</span>
                                             <span className="text-gray-800 dark:text-white font-bold">{ordenSeleccionada.resumenPedido.cantidadAnillados}</span>
                                         </div>
                                     )}
