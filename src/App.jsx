@@ -4,6 +4,7 @@ import { CalculadoraCotizaciones } from './componentes/CalculadoraCotizaciones';
 import { CotizadorRapido } from './componentes/CotizadorRapido';
 import { Configuracion } from './componentes/Configuracion';
 import { DashboardOrdenes } from './componentes/DashboardOrdenes';
+import { GestionPedidos } from './componentes/GestionPedidos';
 
 function App() {
     const [temaOscuro, setTemaOscuro] = useState(() => {
@@ -60,7 +61,7 @@ function App() {
                         setDatosPrecargados={setDatosPrecargados} 
                     />
                 )}
-
+                {pantallaActiva === 'gestionPedidos' && <GestionPedidos />}
                 {pantallaActiva === 'configuracion' && <Configuracion />}
                 {pantallaActiva === 'dashboard' && <DashboardOrdenes />}
             </main>
