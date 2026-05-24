@@ -8,7 +8,6 @@ export const SIN_DOBLE_FAZ = ['a4Fotografico120', 'a4Fotografico200', 'a4Fotogra
 export const CON_ANILLADO = ['a4Color', 'a4BlancoYNegro', 'a4ObraColor'];
 export const USA_ESCALA_BAJA = ['a4ObraColor', 'a3ObraColor', 'a4Ilustracion115', 'sa3Ilustracion115', 'a4Ilustracion200', 'sa3Ilustracion200', 'a4Ilustracion300', 'sa3Ilustracion300', 'a4OppAdhesivo', 'sa3OppAdhesivo', 'a4IlustracionAdhesivo', 'sa3IlustracionAdhesivo'];
 
-// RECIBIMOS EL PUENTE DE DATOS
 export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados }) => {
     const [tarifas, setTarifas] = useState({});
     const [cargandoTarifas, setCargandoTarifas] = useState(true);
@@ -19,22 +18,20 @@ export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados 
         return false;
     });
 
-    const [listaArchivos, setListaArchivos] = useState([{ id: Date.now(), paginas: '', tipoServicio: 'a4Color', esDobleFaz: false, anillado: false }]);
+    const [listaArchivos, setListaArchivos] = useState([{ id: Date.now(), paginas: '', copias: 1, tipoServicio: 'a4Color', esDobleFaz: false, anillado: false }]);
     const [montoLibreria, setMontoLibreria] = useState('');
     const [resultadoManual, setResultadoManual] = useState(null);
 
-    // ACTUALIZAMOS ESTE USEEFFECT
     useEffect(() => {
         if (datosPrecargados) {
-            // Recibimos la precarga y nos aseguramos de que siempre haya una fila vacía al final
             const listaConVacia = [...datosPrecargados, { 
                 id: Date.now() + Math.random(), 
                 paginas: '', 
+                copias: 1,
                 tipoServicio: 'a4Color', 
                 esDobleFaz: false, 
                 anillado: false 
             }];
-            
             setListaArchivos(listaConVacia);
             setModoAutomatico(true); 
             setDatosPrecargados(null); 
@@ -68,24 +65,31 @@ export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados 
         };
 
         archivos.forEach(archivo => {
-            const cantidad = parseInt(archivo.paginas) || 0;
-            if (cantidad > 0) {
-                resumenDetallado.cantidadArchivosImpresos++;
+            const copias = parseInt(archivo.copias) || 1;
+            const paginasUnidad = parseInt(archivo.paginas) || 0;
+            const totalPaginas = paginasUnidad * copias;
+
+            if (totalPaginas > 0) {
+                resumenDetallado.cantidadArchivosImpresos += copias;
                 const claveGrupo = `${archivo.tipoServicio}-${archivo.esDobleFaz}`;
-                agrupacionPorVolumen[claveGrupo] = (agrupacionPorVolumen[claveGrupo] || 0) + cantidad;
-                resumenDetallado.paginas[claveGrupo] = (resumenDetallado.paginas[claveGrupo] || 0) + cantidad;
+                agrupacionPorVolumen[claveGrupo] = (agrupacionPorVolumen[claveGrupo] || 0) + totalPaginas;
+                resumenDetallado.paginas[claveGrupo] = (resumenDetallado.paginas[claveGrupo] || 0) + totalPaginas;
             }
-            if (archivo.anillado) resumenDetallado.cantidadAnillados++;
+            if (archivo.anillado) resumenDetallado.cantidadAnillados += copias;
         });
 
         const detallesPorArchivo = archivos.map(archivo => {
-            const cantidad = parseInt(archivo.paginas) || 0;
+            const copias = parseInt(archivo.copias) || 1;
+            const paginasUnidad = parseInt(archivo.paginas) || 0;
+            const totalPaginas = paginasUnidad * copias;
             const tieneAnillado = archivo.anillado;
-            if (cantidad <= 0 && !tieneAnillado) return null;
 
-            let subtotalImpresionMayorista = 0, subtotalImpresionMinorista = 0, precioUnitarioMayorista = 0;
+            if (totalPaginas <= 0 && !tieneAnillado) return null;
 
-            if (cantidad > 0) {
+            let subtotalImpresionMayorista = 0, subtotalImpresionMinorista = 0;
+            let precioUnitarioMayorista = 0, costoImpresionUnJuegoMinorista = 0, costoImpresionUnJuegoMayorista = 0;
+
+            if (totalPaginas > 0) {
                 const totalPaginasDelGrupo = agrupacionPorVolumen[`${archivo.tipoServicio}-${archivo.esDobleFaz}`];
 
                 let tarifaBase = tablaTarifas[archivo.tipoServicio];
@@ -107,7 +111,8 @@ export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados 
                         }
                     };
 
-                    let unitarioMinorista = obtenerCostoUnitario(cantidad);
+                    // El "Minorista" (Lista) ahora evalúa el precio de un SOLO juego sin los beneficios del volumen
+                    let unitarioMinorista = obtenerCostoUnitario(paginasUnidad);
                     precioUnitarioMayorista = obtenerCostoUnitario(totalPaginasDelGrupo);
 
                     if (archivo.esDobleFaz && !tarifaDobleFaz) {
@@ -115,28 +120,36 @@ export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados 
                         precioUnitarioMayorista *= 1.5;
                     }
 
-                    subtotalImpresionMinorista = cantidad * unitarioMinorista;
-                    subtotalImpresionMayorista = cantidad * precioUnitarioMayorista;
+                    costoImpresionUnJuegoMinorista = paginasUnidad * unitarioMinorista;
+                    costoImpresionUnJuegoMayorista = paginasUnidad * precioUnitarioMayorista;
+
+                    subtotalImpresionMinorista = costoImpresionUnJuegoMinorista * copias;
+                    subtotalImpresionMayorista = costoImpresionUnJuegoMayorista * copias;
                 }
             }
 
-            const costoAnillado = tieneAnillado ? obtenerCostoAnillado(cantidad) : 0;
-            const totalMinorista = subtotalImpresionMinorista + costoAnillado;
-            const totalMayorista = subtotalImpresionMayorista + costoAnillado;
+            const costoAnilladoUnitario = tieneAnillado ? obtenerCostoAnillado(paginasUnidad) : 0;
+            const costoAnilladoTotal = costoAnilladoUnitario * copias;
+            
+            const totalMinoristaUnJuego = costoImpresionUnJuegoMinorista + costoAnilladoUnitario;
+            const totalMayoristaUnJuego = costoImpresionUnJuegoMayorista + costoAnilladoUnitario;
+
+            const totalMinorista = subtotalImpresionMinorista + costoAnilladoTotal;
+            const totalMayorista = subtotalImpresionMayorista + costoAnilladoTotal;
             acumuladoMayorista += totalMayorista;
 
-            return { precioUnitarioMayorista, subtotalImpresion: subtotalImpresionMayorista, costoAnillado, totalMinorista, totalMayorista };
+            return { 
+                precioUnitarioMayorista, subtotalImpresion: subtotalImpresionMayorista, 
+                costoAnillado: costoAnilladoTotal, totalMinorista, totalMayorista,
+                copias, paginasUnidad, totalPaginas,
+                totalMinoristaUnJuego, totalMayoristaUnJuego // Enviamos estos datos nuevos a la tarjeta
+            };
         });
 
         const valorLibreria = parseInt(adicionalLibreria) || 0;
         acumuladoMayorista += valorLibreria;
 
-        return { 
-            detalles: detallesPorArchivo, 
-            resumen: resumenDetallado, 
-            totalSinRedondear: acumuladoMayorista,
-            montoLibreria: valorLibreria 
-        };
+        return { detalles: detallesPorArchivo, resumen: resumenDetallado, totalSinRedondear: acumuladoMayorista, montoLibreria: valorLibreria };
     };
 
     const resultadoAutomatico = useMemo(() => realizarCalculos(listaArchivos, tarifas, montoLibreria), [listaArchivos, tarifas, montoLibreria]);
@@ -144,44 +157,28 @@ export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados 
 
     const guardarOrdenEnBaseDeDatos = async (metodoPago, totalCobrado) => {
         const esModoOscuro = document.documentElement.classList.contains('dark');
-        
         try {
             const nuevaOrden = {
-                fechaCreacion: new Date().toISOString(),
-                metodoPago: metodoPago,
-                totalCobrado: totalCobrado,
-                resumenPedido: datosEnPantalla.resumen,
-                montoLibreria: datosEnPantalla.montoLibreria
+                fechaCreacion: new Date().toISOString(), metodoPago, totalCobrado,
+                resumenPedido: datosEnPantalla.resumen, montoLibreria: datosEnPantalla.montoLibreria
             };
-
             const { error } = await clienteSupabase.from('ordenesProduccion').insert([nuevaOrden]);
             if (error) throw error;
 
-            setListaArchivos([{ id: Date.now(), paginas: '', tipoServicio: 'a4Color', esDobleFaz: false, anillado: false }]);
+            setListaArchivos([{ id: Date.now(), paginas: '', copias: 1, tipoServicio: 'a4Color', esDobleFaz: false, anillado: false }]);
             setMontoLibreria('');
             setResultadoManual(null);
-            
-            Swal.fire({
-                icon: 'success', title: '¡Orden guardada!', text: 'La comanda se registró exitosamente.',
-                toast: true, position: 'bottom-end', showConfirmButton: false, timer: 3000,
-                background: esModoOscuro ? '#1F2937' : '#ffffff', color: esModoOscuro ? '#ffffff' : '#1F2937',
-                customClass: { popup: 'rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700', title: 'font-bold' }
-            });
-            
+            Swal.fire({ icon: 'success', title: '¡Orden guardada!', toast: true, position: 'bottom-end', showConfirmButton: false, timer: 3000, background: esModoOscuro ? '#1F2937' : '#ffffff', color: esModoOscuro ? '#ffffff' : '#1F2937', customClass: { popup: 'rounded-2xl shadow-xl' }});
         } catch (error) {
-            console.error("Error al guardar la orden:", error);
-            Swal.fire({
-                icon: 'error', title: 'Error de conexión', text: 'Hubo un problema al guardar la orden.',
-                toast: true, position: 'bottom-end', showConfirmButton: false, timer: 4000,
-                background: esModoOscuro ? '#1F2937' : '#ffffff', color: esModoOscuro ? '#ffffff' : '#1F2937',
-                customClass: { popup: 'rounded-2xl shadow-xl border border-red-100 dark:border-red-900', title: 'font-bold' }
-            });
+            Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo guardar.', toast: true, position: 'bottom-end', showConfirmButton: false, timer: 4000, background: esModoOscuro ? '#1F2937' : '#ffffff', color: esModoOscuro ? '#ffffff' : '#1F2937', customClass: { popup: 'rounded-2xl shadow-xl border border-red-900'} });
         }
     };
 
     const manejarCambioArchivo = (id, campo, valor) => {
         if (!modoAutomatico) setResultadoManual(null);
-        let valorFinal = (campo === 'paginas' && valor < 0) ? 0 : valor;
+        let valorFinal = valor;
+        if (campo === 'paginas' && valor < 0) valorFinal = 0;
+        if (campo === 'copias') valorFinal = valor === '' ? '' : Math.max(1, parseInt(valor));
 
         setListaArchivos(listaActual => {
             const nuevaLista = listaActual.map(archivo => {
@@ -198,7 +195,7 @@ export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados 
 
             const archivoEditado = nuevaLista.find(a => a.id === id);
             if (nuevaLista[nuevaLista.length - 1].id === id && (archivoEditado.paginas !== '' || archivoEditado.anillado)) {
-                nuevaLista.push({ id: Date.now() + Math.random(), paginas: '', tipoServicio: 'a4Color', esDobleFaz: false, anillado: false });
+                nuevaLista.push({ id: Date.now() + Math.random(), paginas: '', copias: 1, tipoServicio: 'a4Color', esDobleFaz: false, anillado: false });
             } else {
                 while (nuevaLista.length > 1 && nuevaLista[nuevaLista.length - 2].paginas === '' && !nuevaLista[nuevaLista.length - 2].anillado &&
                        nuevaLista[nuevaLista.length - 1].paginas === '' && !nuevaLista[nuevaLista.length - 1].anillado) {
@@ -217,7 +214,7 @@ export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados 
     const resetearArchivo = (id) => {
         if (!modoAutomatico) setResultadoManual(null);
         setListaArchivos(listaActual => {
-            const nuevaLista = listaActual.map(archivo => archivo.id === id ? { ...archivo, paginas: '', tipoServicio: 'a4Color', esDobleFaz: false, anillado: false } : archivo);
+            const nuevaLista = listaActual.map(archivo => archivo.id === id ? { ...archivo, paginas: '', copias: 1, tipoServicio: 'a4Color', esDobleFaz: false, anillado: false } : archivo);
             while (nuevaLista.length > 1 && nuevaLista[nuevaLista.length - 2].paginas === '' && !nuevaLista[nuevaLista.length - 2].anillado &&
                    nuevaLista[nuevaLista.length - 1].paginas === '' && !nuevaLista[nuevaLista.length - 1].anillado) {
                 nuevaLista.pop();
@@ -246,19 +243,14 @@ export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados 
 
                 <div className="space-y-4 mb-2">
                     {listaArchivos.map((archivo, indice) => (
-                        <FilaArchivo key={archivo.id} archivo={archivo} indice={indice} detalleArchivo={datosEnPantalla?.detalles[indice]} manejarCambioArchivo={manejarCambioArchivo} resetearArchivo={resetearArchivo} />
+                        <FilaArchivo key={archivo.id} archivo={archivo} detalleArchivo={datosEnPantalla?.detalles[indice]} manejarCambioArchivo={manejarCambioArchivo} resetearArchivo={resetearArchivo} />
                     ))}
                 </div>
 
                 <div className="bg-white dark:bg-gray-800 rounded-3xl p-5 shadow-sm border border-gray-100 dark:border-gray-700 flex justify-between items-center gap-4 transition-all hover:border-empresa/30 mb-2 mt-4">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-2xl bg-empresa/10 flex items-center justify-center text-empresa">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
-                        </div>
-                        <div>
-                            <h3 className="text-sm font-black text-gray-800 dark:text-white">Librería / Otros</h3>
-                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">Anillados extra, útiles, etc.</p>
-                        </div>
+                        <div className="w-10 h-10 rounded-2xl bg-empresa/10 flex items-center justify-center text-empresa"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg></div>
+                        <div><h3 className="text-sm font-black text-gray-800 dark:text-white">Librería / Otros</h3><p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">Anillados extra, útiles, etc.</p></div>
                     </div>
                     <div className="relative w-32 md:w-40">
                         <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 font-black">$</span>
@@ -266,9 +258,7 @@ export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados 
                     </div>
                 </div>
 
-                {!modoAutomatico && (
-                    <button onClick={procesarCalculoManual} className="w-full bg-gray-900 dark:bg-gray-700 text-white font-black py-5 rounded-3xl shadow-lg transition-all text-lg uppercase tracking-widest mt-2">Actualizar Precios</button>
-                )}
+                {!modoAutomatico && <button onClick={procesarCalculoManual} className="w-full bg-gray-900 dark:bg-gray-700 text-white font-black py-5 rounded-3xl shadow-lg transition-all text-lg uppercase tracking-widest mt-2">Actualizar Precios</button>}
             </div>
 
             <ResumenOrden datosEnPantalla={datosEnPantalla} guardarOrdenEnBaseDeDatos={guardarOrdenEnBaseDeDatos} />

@@ -88,6 +88,7 @@ export const CotizadorRapido = ({ setPantallaActiva, setDatosPrecargados }) => {
         setDatosPrecargados([{
             id: Date.now(),
             paginas: parseInt(cantidadPaginas),
+            copias: 1,
             tipoServicio: papelId,
             esDobleFaz: esDobleFaz,
             anillado: llevaAnillado
