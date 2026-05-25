@@ -11,7 +11,7 @@ export const USA_ESCALA_BAJA = ['a4ObraColor', 'a3ObraColor', 'a4Ilustracion115'
 export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados }) => {
     const [tarifas, setTarifas] = useState({});
     const [cargandoTarifas, setCargandoTarifas] = useState(true);
-    
+
     const [modoAutomatico, setModoAutomatico] = useState(() => {
         const modoGuardado = window.localStorage.getItem('preferenciaModoAutomatico');
         if (modoGuardado !== null) return JSON.parse(modoGuardado);
@@ -24,12 +24,12 @@ export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados 
 
     useEffect(() => {
         if (datosPrecargados) {
-            const listaConVacia = [...datosPrecargados, { 
-                id: Date.now() + Math.random(), paginas: '', copias: 1, tipoServicio: 'a4Color', esDobleFaz: false, anillado: false 
+            const listaConVacia = [...datosPrecargados, {
+                id: Date.now() + Math.random(), paginas: '', copias: 1, tipoServicio: 'a4Color', esDobleFaz: false, anillado: false
             }];
             setListaArchivos(listaConVacia);
-            setModoAutomatico(true); 
-            setDatosPrecargados(null); 
+            setModoAutomatico(true);
+            setDatosPrecargados(null);
         }
     }, [datosPrecargados, setDatosPrecargados]);
 
@@ -53,7 +53,7 @@ export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados 
         const resumenDetallado = { cantidadArchivosImpresos: 0, cantidadAnillados: 0, paginas: {} };
 
         const obtenerCostoAnillado = (cantidadPaginas) => {
-            if (cantidadPaginas === 0) return 1500; 
+            if (cantidadPaginas === 0) return 1500;
             if (cantidadPaginas <= 100) return 1500;
             if (cantidadPaginas <= 300) return 1700;
             return 1900;
@@ -124,7 +124,7 @@ export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados 
 
             const costoAnilladoUnitario = tieneAnillado ? obtenerCostoAnillado(paginasUnidad) : 0;
             const costoAnilladoTotal = costoAnilladoUnitario * copias;
-            
+
             const totalMinoristaUnJuego = costoImpresionUnJuegoMinorista + costoAnilladoUnitario;
             const totalMayoristaUnJuego = costoImpresionUnJuegoMayorista + costoAnilladoUnitario;
 
@@ -132,10 +132,10 @@ export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados 
             const totalMayorista = subtotalImpresionMayorista + costoAnilladoTotal;
             acumuladoMayorista += totalMayorista;
 
-            return { 
-                precioUnitarioMayorista, subtotalImpresion: subtotalImpresionMayorista, 
+            return {
+                precioUnitarioMayorista, subtotalImpresion: subtotalImpresionMayorista,
                 costoAnillado: costoAnilladoTotal, totalMinorista, totalMayorista,
-                copias, paginasUnidad, totalPaginas, totalMinoristaUnJuego, totalMayoristaUnJuego 
+                copias, paginasUnidad, totalPaginas, totalMinoristaUnJuego, totalMayoristaUnJuego
             };
         });
 
@@ -148,31 +148,70 @@ export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados 
     const resultadoAutomatico = useMemo(() => realizarCalculos(listaArchivos, tarifas, montoLibreria), [listaArchivos, tarifas, montoLibreria]);
     const datosEnPantalla = modoAutomatico ? resultadoAutomatico : resultadoManual;
 
-    const guardarOrdenEnBaseDeDatos = async (metodoPago, totalCobrado) => {
+    // EL PUENTE SE CONSTRUYE AQUÍ
+    const guardarOrdenEnBaseDeDatos = async (metodoPago, totalCobrado, datosAgenda = null) => {
         const esModoOscuro = document.documentElement.classList.contains('dark');
         try {
-            // NUEVO: Filtramos los archivos válidos para guardarlos intactos en el historial
             const archivosValidos = listaArchivos.filter(a => parseInt(a.paginas) > 0 || a.anillado);
+            const totalEfectivoBase = Math.ceil((datosEnPantalla.totalSinRedondear * 0.87) / 100) * 100;
+            
+            if (datosAgenda) {
+                const montoSena = datosAgenda.sena > 0 ? datosAgenda.sena : 0;
+                if (montoSena > 0) {
+                    const ordenSena = {
+                        fechaCreacion: new Date().toISOString(), 
+                        metodoPago: 'efectivo', 
+                        totalCobrado: montoSena,
+                        resumenPedido: { ...datosEnPantalla.resumen, notaExtra: 'SEÑA PEDIDO', archivosOriginales: archivosValidos }, 
+                        montoLibreria: 0
+                    };
+                    await clienteSupabase.from('ordenesProduccion').insert([ordenSena]);
+                }
 
-            const nuevaOrden = {
-                fechaCreacion: new Date().toISOString(), 
-                metodoPago, 
-                totalCobrado,
-                resumenPedido: {
-                    ...datosEnPantalla.resumen,
-                    archivosOriginales: archivosValidos // Inyectamos el desglose exacto
-                }, 
-                montoLibreria: datosEnPantalla.montoLibreria
-            };
-            const { error } = await clienteSupabase.from('ordenesProduccion').insert([nuevaOrden]);
-            if (error) throw error;
+                const saldoRestante = totalEfectivoBase - montoSena;
+                const detalleFinal = `${archivosValidos.length} Archivo(s). ${datosAgenda.detalleExtra ? 'Extra: ' + datosAgenda.detalleExtra : ''}`;
+                const codigoCliente = datosAgenda.telefono.slice(-4);
+
+                const { error: errorTaller } = await clienteSupabase.from('pedidosTaller').insert([{
+                    nombreCliente: datosAgenda.nombre || 'Cliente S/N',
+                    telefono: datosAgenda.telefono,
+                    codigoCliente: codigoCliente,
+                    detalle: detalleFinal,
+                    fechaEntrega: datosAgenda.fecha,
+                    estado: 'sin_iniciar',
+                    fechaCreacion: new Date().toISOString(),
+                    resumenPedido: { 
+                        archivosOriginales: archivosValidos,
+                        totalEfectivo: totalEfectivoBase,
+                        sena: montoSena,
+                        restante: saldoRestante,
+                        etiquetaVisual: datosAgenda.etiqueta // ACÁ INYECTAMOS LA ETIQUETA
+                    } 
+                }]);
+                
+                if (errorTaller) throw errorTaller;
+                Swal.fire({ icon: 'success', title: 'Agendado', text: `Orden #${codigoCliente} enviada al Taller`, toast: true, position: 'bottom-end', showConfirmButton: false, timer: 3000, background: esModoOscuro ? '#1F2937' : '#ffffff', color: esModoOscuro ? '#ffffff' : '#1F2937' });
+            
+            } else {
+                const nuevaOrdenVenta = {
+                    fechaCreacion: new Date().toISOString(), 
+                    metodoPago, 
+                    totalCobrado,
+                    resumenPedido: { ...datosEnPantalla.resumen, archivosOriginales: archivosValidos }, 
+                    montoLibreria: datosEnPantalla.montoLibreria
+                };
+                const { error: errorVenta } = await clienteSupabase.from('ordenesProduccion').insert([nuevaOrdenVenta]);
+                if (errorVenta) throw errorVenta;
+                Swal.fire({ icon: 'success', title: '¡Venta Registrada!', toast: true, position: 'bottom-end', showConfirmButton: false, timer: 2000, background: esModoOscuro ? '#1F2937' : '#ffffff', color: esModoOscuro ? '#ffffff' : '#1F2937' });
+            }
 
             setListaArchivos([{ id: Date.now(), paginas: '', copias: 1, tipoServicio: 'a4Color', esDobleFaz: false, anillado: false }]);
             setMontoLibreria('');
             setResultadoManual(null);
-            Swal.fire({ icon: 'success', title: '¡Orden guardada!', toast: true, position: 'bottom-end', showConfirmButton: false, timer: 3000, background: esModoOscuro ? '#1F2937' : '#ffffff', color: esModoOscuro ? '#ffffff' : '#1F2937', customClass: { popup: 'rounded-2xl shadow-xl' }});
+            
         } catch (error) {
-            Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo guardar.', toast: true, position: 'bottom-end', showConfirmButton: false, timer: 4000, background: esModoOscuro ? '#1F2937' : '#ffffff', color: esModoOscuro ? '#ffffff' : '#1F2937', customClass: { popup: 'rounded-2xl shadow-xl border border-red-900'} });
+            console.error("Error:", error);
+            Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudo procesar.', background: esModoOscuro ? '#1F2937' : '#ffffff', color: esModoOscuro ? '#ffffff' : '#1F2937' });
         }
     };
 
@@ -200,7 +239,7 @@ export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados 
                 nuevaLista.push({ id: Date.now() + Math.random(), paginas: '', copias: 1, tipoServicio: 'a4Color', esDobleFaz: false, anillado: false });
             } else {
                 while (nuevaLista.length > 1 && nuevaLista[nuevaLista.length - 2].paginas === '' && !nuevaLista[nuevaLista.length - 2].anillado &&
-                       nuevaLista[nuevaLista.length - 1].paginas === '' && !nuevaLista[nuevaLista.length - 1].anillado) {
+                    nuevaLista[nuevaLista.length - 1].paginas === '' && !nuevaLista[nuevaLista.length - 1].anillado) {
                     nuevaLista.pop();
                 }
             }
@@ -218,7 +257,7 @@ export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados 
         setListaArchivos(listaActual => {
             const nuevaLista = listaActual.map(archivo => archivo.id === id ? { ...archivo, paginas: '', copias: 1, tipoServicio: 'a4Color', esDobleFaz: false, anillado: false } : archivo);
             while (nuevaLista.length > 1 && nuevaLista[nuevaLista.length - 2].paginas === '' && !nuevaLista[nuevaLista.length - 2].anillado &&
-                   nuevaLista[nuevaLista.length - 1].paginas === '' && !nuevaLista[nuevaLista.length - 1].anillado) {
+                nuevaLista[nuevaLista.length - 1].paginas === '' && !nuevaLista[nuevaLista.length - 1].anillado) {
                 nuevaLista.pop();
             }
             return nuevaLista;
