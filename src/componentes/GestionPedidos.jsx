@@ -120,7 +120,7 @@ export const GestionPedidos = () => {
 
     const enviarMensajeWhatsApp = async (telefono, codigoCliente, nuevoEstado) => {
         if (!telefono) return;
-        const numeroFinal = telefono.replace(/\D/g, '');
+        const numeroFinal = "+54" + telefono.replace(/\D/g, '').slice(-10);
         const esModoOscuro = document.documentElement.classList.contains('dark');
 
         let mensaje = '';
