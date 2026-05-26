@@ -1,268 +1,99 @@
-import { useState, useEffect } from 'react';
-import { clienteSupabase } from '../servicios/clienteSupabase';
-import Swal from 'sweetalert2';
-
-// DICCIONARIO ESTRUCTURAL: Agregamos la propiedad 'autoCalculado' a los papeles menores
-const papelesConfig = [
-    { id: 'a4Color', nombre: 'A4 Color', tab: 'clasicas', tipo: 'escala4' },
-    { id: 'a4BlancoYNegro', nombre: 'A4 B/N', tab: 'clasicas', tipo: 'escala4' },
-    { id: 'a3ObraColor', nombre: 'A3 Obra Láser', tab: 'obra', tipo: 'escala4_baja' },
-    { id: 'a4ObraColor', nombre: 'A4 Obra Láser', tab: 'obra', tipo: 'escala4_baja', autoCalculado: true },
-    { id: 'sa3Ilustracion115', nombre: 'S.A3 Ilust. 115g', tab: 'ilustracion', tipo: 'escala4_baja' },
-    { id: 'a4Ilustracion115', nombre: 'A4 Ilust. 115g', tab: 'ilustracion', tipo: 'escala4_baja', autoCalculado: true },
-    { id: 'sa3Ilustracion200', nombre: 'S.A3 Ilust. 200g', tab: 'ilustracion', tipo: 'escala4_baja' },
-    { id: 'a4Ilustracion200', nombre: 'A4 Ilust. 200g', tab: 'ilustracion', tipo: 'escala4_baja', autoCalculado: true },
-    { id: 'sa3Ilustracion300', nombre: 'S.A3 Ilust. 300g', tab: 'ilustracion', tipo: 'escala4_baja' },
-    { id: 'a4Ilustracion300', nombre: 'A4 Ilust. 300g', tab: 'ilustracion', tipo: 'escala4_baja', autoCalculado: true },
-    { id: 'a4Cartulina', nombre: 'A4 Cartulina Color', tab: 'foto', tipo: 'unico' },
-    { id: 'a4Fotografico120', nombre: 'A4 Foto 120g', tab: 'foto', tipo: 'unico' },
-    { id: 'a4Fotografico200', nombre: 'A4 Foto 200g', tab: 'foto', tipo: 'unico' },
-    { id: 'a4Fotografico250', nombre: 'A4 Foto 250g', tab: 'foto', tipo: 'unico' },
-    { id: 'a4FotoAdhesivo135', nombre: 'A4 Foto Adhes. 135g', tab: 'adhesivos', tipo: 'unico' },
-    { id: 'sa3OppAdhesivo', nombre: 'S.A3 OPP Adhesivo', tab: 'adhesivos', tipo: 'escala4_baja' },
-    { id: 'a4OppAdhesivo', nombre: 'A4 OPP Adhesivo', tab: 'adhesivos', tipo: 'escala4_baja', autoCalculado: true },
-    { id: 'sa3IlustracionAdhesivo', nombre: 'S.A3 Ilust. Adhesivo', tab: 'adhesivos', tipo: 'escala4_baja' },
-    { id: 'a4IlustracionAdhesivo', nombre: 'A4 Ilust. Adhesivo', tab: 'adhesivos', tipo: 'escala4_baja', autoCalculado: true }
-];
-
-const tabsConfig = [
-    { id: 'clasicas', nombre: 'Clásicas' },
-    { id: 'obra', nombre: 'Obra Láser' },
-    { id: 'ilustracion', nombre: 'Ilustración' },
-    { id: 'foto', nombre: 'Cartulinas & Fotos' },
-    { id: 'adhesivos', nombre: 'Adhesivos' }
-];
-
-// DICCIONARIO DE VÍNCULOS: Padre (Grande) -> Hijo (Chico)
-const relacionesTamanos = {
-    'sa3Ilustracion115': 'a4Ilustracion115',
-    'sa3Ilustracion200': 'a4Ilustracion200',
-    'sa3Ilustracion300': 'a4Ilustracion300',
-    'sa3OppAdhesivo': 'a4OppAdhesivo',
-    'sa3IlustracionAdhesivo': 'a4IlustracionAdhesivo',
-    'a3ObraColor': 'a4ObraColor' // Incluido también por lógica matemática
-};
+import { useState } from 'react';
+import { ConfiguracionPrecios } from './ConfiguracionPrecios'; 
+import { ConfiguracionOperarios } from './ConfiguracionOperarios';
 
 export const Configuracion = () => {
-    const [listaTarifas, setListaTarifas] = useState([]);
-    const [cargando, setCargando] = useState(true);
-    const [guardando, setGuardando] = useState(false);
-    const [tabActivo, setTabActivo] = useState('clasicas');
+    const [pestanaActiva, setPestanaActiva] = useState('precios');
 
-    useEffect(() => {
-        obtenerTarifasBase();
-    }, []);
-
-    const obtenerTarifasBase = async () => {
-        try {
-            setCargando(true);
-            const { data, error } = await clienteSupabase.from('tarifasImpresion').select('*');
-            if (error) throw error;
-
-            const tarifasCompletas = papelesConfig.map(config => {
-                const existeEnBd = data.find(d => d.tipoImpresion === config.id);
-                if (existeEnBd) return existeEnBd;
-                return {
-                    tipoImpresion: config.id,
-                    precioHasta50: 0, precioHasta100: 0, precioHasta200: 0, precioMasDe200: 0,
-                    esNuevoRegistro: true 
-                };
-            });
-
-            setListaTarifas(tarifasCompletas);
-        } catch (error) {
-            console.error("error al cargar tarifas:", error);
-            Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudieron cargar las tarifas de la base de datos.' });
-        } finally {
-            setCargando(false);
+    const MENU_OPCIONES = [
+        { 
+            id: 'precios', 
+            titulo: 'Tarifas y Precios', 
+            descripcion: 'Actualizá los costos de impresión',
+            icono: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z' 
+        },
+        { 
+            id: 'operarios', 
+            titulo: 'Equipo de Trabajo', 
+            descripcion: 'Gestión de staff del taller',
+            icono: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' 
+        },
+        { 
+            id: 'whatsapp', 
+            titulo: 'API de WhatsApp', 
+            descripcion: 'Tokens y conexión a Meta',
+            icono: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z' 
         }
-    };
-
-    const manejarCambioPrecio = (idPapel, campo, valor, tipoUI) => {
-        setListaTarifas(listaActual => {
-            const numeroLimpio = parseInt(valor) || 0;
-            
-            // 1. Actualizamos el papel que el usuario editó
-            let nuevaLista = listaActual.map(tarifa => {
-                if (tarifa.tipoImpresion === idPapel) {
-                    if (tipoUI === 'unico') {
-                        return { ...tarifa, precioHasta50: numeroLimpio, precioHasta100: numeroLimpio, precioHasta200: numeroLimpio, precioMasDe200: numeroLimpio };
-                    }
-                    return { ...tarifa, [campo]: numeroLimpio };
-                }
-                return tarifa;
-            });
-
-            // 2. MAGIA: Si el papel que se editó es un formato grande, actualizamos su A4 a la mitad
-            if (relacionesTamanos[idPapel]) {
-                const idPapelMenor = relacionesTamanos[idPapel];
-                nuevaLista = nuevaLista.map(tarifa => {
-                    if (tarifa.tipoImpresion === idPapelMenor) {
-                        const valorMitad = Math.round(numeroLimpio / 2);
-                        if (tipoUI === 'unico') {
-                            return { ...tarifa, precioHasta50: valorMitad, precioHasta100: valorMitad, precioHasta200: valorMitad, precioMasDe200: valorMitad };
-                        }
-                        return { ...tarifa, [campo]: valorMitad };
-                    }
-                    return tarifa;
-                });
-            }
-
-            return nuevaLista;
-        });
-    };
-
-    const guardarCambiosBd = async () => {
-        const esModoOscuro = document.documentElement.classList.contains('dark');
-        try {
-            setGuardando(true);
-            
-            const filasParaInsertar = listaTarifas.filter(t => t.esNuevoRegistro).map(t => ({
-                tipoImpresion: t.tipoImpresion,
-                precioHasta50: t.precioHasta50, precioHasta100: t.precioHasta100, 
-                precioHasta200: t.precioHasta200, precioMasDe200: t.precioMasDe200
-            }));
-
-            const filasParaActualizar = listaTarifas.filter(t => !t.esNuevoRegistro);
-
-            if (filasParaInsertar.length > 0) {
-                const { error: errInsert } = await clienteSupabase.from('tarifasImpresion').insert(filasParaInsertar);
-                if (errInsert) throw errInsert;
-            }
-
-            const promesasActualizacion = filasParaActualizar.map(tarifa => 
-                clienteSupabase.from('tarifasImpresion').update({
-                    precioHasta50: tarifa.precioHasta50, precioHasta100: tarifa.precioHasta100,
-                    precioHasta200: tarifa.precioHasta200, precioMasDe200: tarifa.precioMasDe200
-                }).eq('id', tarifa.id)
-            );
-
-            await Promise.all(promesasActualizacion);
-            await obtenerTarifasBase();
-
-            Swal.fire({
-                icon: 'success', title: '¡Precios Actualizados!',
-                toast: true, position: 'bottom-end', showConfirmButton: false, timer: 3000,
-                background: esModoOscuro ? '#1f2937' : '#ffffff', color: esModoOscuro ? '#ffffff' : '#1f2937',
-                customClass: { popup: 'rounded-2xl shadow-xl' }
-            });
-        } catch (error) {
-            console.error("error al guardar cambios:", error);
-            Swal.fire({
-                icon: 'error', title: 'Error', text: 'Hubo un problema al intentar guardar los precios.',
-                background: esModoOscuro ? '#1f2937' : '#ffffff', color: esModoOscuro ? '#ffffff' : '#1f2937'
-            });
-        } finally {
-            setGuardando(false);
-        }
-    };
-
-    if (cargando) return <div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-empresa"></div></div>;
-
-    const papelesDelTabActual = papelesConfig.filter(p => p.tab === tabActivo);
+    ];
 
     return (
-        <div className="max-w-6xl mx-auto flex flex-col gap-6 animate-fade-in pb-10">
+        <div className="max-w-[1400px] mx-auto animate-fade-in pb-10">
             
-            <div className="bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row justify-between items-center gap-4">
-                <div>
-                    <h2 className="text-3xl font-black text-gray-800 dark:text-white tracking-tight">Panel de Configuración</h2>
-                    <p className="text-gray-500 dark:text-gray-400 mt-1">Gestione todas las tarifas de impresión y papelería especial</p>
+            <div className="bg-white dark:bg-gray-800 rounded-3xl p-6 md:p-8 shadow-sm border border-gray-100 dark:border-gray-700 mb-6">
+                <h2 className="text-3xl font-black text-gray-800 dark:text-white tracking-tight">Ajustes del Sistema</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Administrá las reglas de negocio, precios y tu equipo de trabajo.</p>
+            </div>
+
+            <div className="flex flex-col lg:flex-row gap-6 items-start">
+                
+                {/* --- SIDEBAR --- */}
+                <div className="w-full lg:w-72 flex-shrink-0 flex flex-col gap-2 sticky top-6">
+                    {MENU_OPCIONES.map(opcion => {
+                        const activo = pestanaActiva === opcion.id;
+                        return (
+                            <button 
+                                key={opcion.id}
+                                onClick={() => setPestanaActiva(opcion.id)}
+                                className={`w-full flex items-start gap-4 p-4 rounded-2xl text-left transition-all duration-300 border-2 ${
+                                    activo 
+                                    ? 'bg-white dark:bg-gray-800 border-empresa shadow-md transform scale-[1.02]' 
+                                    : 'bg-transparent border-transparent hover:bg-white dark:hover:bg-gray-800 hover:border-gray-200 dark:hover:border-gray-700'
+                                }`}
+                            >
+                                <div className={`p-2 rounded-xl mt-0.5 ${activo ? 'bg-empresa/10 text-empresa' : 'bg-gray-100 dark:bg-gray-700 text-gray-500'}`}>
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={opcion.icono} />
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 className={`font-black text-sm ${activo ? 'text-empresa' : 'text-gray-700 dark:text-gray-300'}`}>
+                                        {opcion.titulo}
+                                    </h3>
+                                    <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-1">
+                                        {opcion.descripcion}
+                                    </p>
+                                </div>
+                            </button>
+                        );
+                    })}
                 </div>
-                <button
-                    onClick={guardarCambiosBd}
-                    disabled={guardando}
-                    className={`px-8 py-3.5 rounded-2xl font-black text-white shadow-lg transition-all text-sm uppercase tracking-widest flex items-center gap-2 ${guardando ? 'bg-gray-400 cursor-not-allowed' : 'bg-gray-900 dark:bg-gray-100 dark:text-gray-900 hover:scale-[1.02]'}`}
-                >
-                    {guardando ? 'Guardando...' : 'Guardar Precios'}
-                </button>
-            </div>
 
-            <div className="flex overflow-x-auto hide-scrollbar gap-3 pb-2 mb-2">
-                {tabsConfig.map(tab => (
-                    <button 
-                        key={tab.id}
-                        onClick={() => setTabActivo(tab.id)} 
-                        className={`px-6 py-3 rounded-2xl whitespace-nowrap font-black text-sm transition-all border-2 ${tabActivo === tab.id ? 'bg-empresa/10 border-empresa text-empresa shadow-sm' : 'bg-white dark:bg-gray-800 border-transparent text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
-                    >
-                        {tab.nombre}
-                    </button>
-                ))}
-            </div>
-
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                {papelesDelTabActual.map((configPapel) => {
-                    const tarifa = listaTarifas.find(t => t.tipoImpresion === configPapel.id) || {};
-                    const estaBloqueado = configPapel.autoCalculado;
+                {/* --- ÁREA DE CONTENIDO DINÁMICO (Ahora con h-fit y p-6/p-8) --- */}
+                <div className="flex-1 w-full bg-white dark:bg-gray-800 rounded-3xl p-6 lg:p-8 shadow-sm border border-gray-100 dark:border-gray-700 h-fit">
                     
-                    const claseInputFijo = `w-full h-12 px-3 pt-1 border rounded-xl font-bold text-gray-800 dark:text-white outline-none transition-all ${
-                        estaBloqueado 
-                            ? 'bg-gray-100 dark:bg-gray-800/50 border-gray-100 dark:border-gray-700/50 text-gray-400 dark:text-gray-500 cursor-not-allowed opacity-70' 
-                            : 'bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-600 focus:border-empresa'
-                    }`;
-
-                    return (
-                        <div key={configPapel.id} className={`bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-3xl p-6 shadow-sm flex flex-col justify-between transition-all ${estaBloqueado ? 'opacity-80' : 'hover:shadow-md'}`}>
-                            
-                            <div className="border-b border-dashed dark:border-gray-700 pb-3 mb-5 flex justify-between items-center">
-                                <h3 className="text-xl font-black text-gray-800 dark:text-white tracking-tight flex items-center gap-3">
-                                    {configPapel.nombre}
-                                </h3>
-                                {estaBloqueado && (
-                                    <span className="text-[10px] bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 px-2.5 py-1 rounded-md uppercase tracking-widest font-bold">
-                                        Auto (50%)
-                                    </span>
-                                )}
-                            </div>
-
-                            {configPapel.tipo === 'unico' ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="relative">
-                                        <label className="text-[10px] font-bold text-empresa uppercase absolute -top-2 left-3 bg-white dark:bg-gray-800 px-1 z-10">Precio Único</label>
-                                        <input
-                                            type="number"
-                                            className={claseInputFijo}
-                                            value={tarifa.precioHasta50 === 0 ? '' : tarifa.precioHasta50}
-                                            onChange={(e) => manejarCambioPrecio(configPapel.id, 'precioHasta50', e.target.value, 'unico')}
-                                            readOnly={estaBloqueado}
-                                            tabIndex={estaBloqueado ? -1 : 0}
-                                        />
-                                    </div>
-                                    <div className="flex items-center text-xs text-gray-400 italic px-2">
-                                        * Este precio se aplica sin importar la cantidad.
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    <div className="relative">
-                                        <label className="text-[10px] font-bold text-gray-400 uppercase absolute -top-2 left-3 bg-white dark:bg-gray-800 px-1 z-10">
-                                            {configPapel.tipo === 'escala4' ? 'Hasta 50' : '1 Unid.'}
-                                        </label>
-                                        <input type="number" className={claseInputFijo} value={tarifa.precioHasta50 === 0 ? '' : tarifa.precioHasta50} onChange={(e) => manejarCambioPrecio(configPapel.id, 'precioHasta50', e.target.value, 'escala')} readOnly={estaBloqueado} tabIndex={estaBloqueado ? -1 : 0} />
-                                    </div>
-                                    <div className="relative">
-                                        <label className="text-[10px] font-bold text-gray-400 uppercase absolute -top-2 left-3 bg-white dark:bg-gray-800 px-1 z-10">
-                                            {configPapel.tipo === 'escala4' ? 'Hasta 100' : '2 a 5'}
-                                        </label>
-                                        <input type="number" className={claseInputFijo} value={tarifa.precioHasta100 === 0 ? '' : tarifa.precioHasta100} onChange={(e) => manejarCambioPrecio(configPapel.id, 'precioHasta100', e.target.value, 'escala')} readOnly={estaBloqueado} tabIndex={estaBloqueado ? -1 : 0} />
-                                    </div>
-                                    <div className="relative">
-                                        <label className="text-[10px] font-bold text-gray-400 uppercase absolute -top-2 left-3 bg-white dark:bg-gray-800 px-1 z-10">
-                                            {configPapel.tipo === 'escala4' ? 'Hasta 200' : '6 a 10'}
-                                        </label>
-                                        <input type="number" className={claseInputFijo} value={tarifa.precioHasta200 === 0 ? '' : tarifa.precioHasta200} onChange={(e) => manejarCambioPrecio(configPapel.id, 'precioHasta200', e.target.value, 'escala')} readOnly={estaBloqueado} tabIndex={estaBloqueado ? -1 : 0} />
-                                    </div>
-                                    <div className="relative">
-                                        <label className="text-[10px] font-bold text-gray-400 uppercase absolute -top-2 left-3 bg-white dark:bg-gray-800 px-1 z-10">
-                                            {configPapel.tipo === 'escala4' ? 'Más de 200' : '+ 10'}
-                                        </label>
-                                        <input type="number" className={claseInputFijo} value={tarifa.precioMasDe200 === 0 ? '' : tarifa.precioMasDe200} onChange={(e) => manejarCambioPrecio(configPapel.id, 'precioMasDe200', e.target.value, 'escala')} readOnly={estaBloqueado} tabIndex={estaBloqueado ? -1 : 0} />
-                                    </div>
-                                </div>
-                            )}
+                    {pestanaActiva === 'precios' && (
+                        <div className="animate-fade-in w-full">
+                            <ConfiguracionPrecios />
                         </div>
-                    );
-                })}
+                    )}
+
+                    {pestanaActiva === 'operarios' && (
+                        <div className="animate-fade-in w-full">
+                            <ConfiguracionOperarios />
+                        </div>
+                    )}
+
+                    {pestanaActiva === 'whatsapp' && (
+                        <div className="animate-fade-in w-full py-10 flex flex-col items-center justify-center text-center">
+                            <div className="w-20 h-20 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center text-green-500 mb-6 border-4 border-white dark:border-gray-800 shadow-lg">
+                                <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+                            </div>
+                            <h3 className="text-2xl font-black text-gray-800 dark:text-white">Conexión con Meta API</h3>
+                            <p className="text-gray-500 text-sm mt-3 max-w-md">Próximamente: Desde acá vas a poder actualizar tu Token de WhatsApp cuando venza sin necesidad de tocar el archivo <code>.env</code> ni reiniciar el servidor.</p>
+                        </div>
+                    )}
+
+                </div>
             </div>
         </div>
     );
