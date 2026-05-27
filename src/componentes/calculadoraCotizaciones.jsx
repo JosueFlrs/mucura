@@ -90,6 +90,49 @@ export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados 
                     return nuevos;
                 });
             }
+
+            // --- NUEVA LÓGICA: TECLA ENTER PARA SALTAR DE FILA ---
+            if (tecla === 'enter') {
+                evento.preventDefault();
+                
+                setListaArchivos(actuales => {
+                    const ultimoIndice = actuales.length - 1;
+                    const indiceFilaActual = indiceFila !== null ? indiceFila : ultimoIndice;
+
+                    // CASO 1: Si no está en la última fila, simplemente baja a la siguiente
+                    if (indiceFilaActual < ultimoIndice) {
+                        setTimeout(() => {
+                            const sigInput = document.querySelector(`input[name="paginas"][data-index="${indiceFilaActual + 1}"]`);
+                            if (sigInput) sigInput.focus();
+                        }, 10);
+                        return actuales;
+                    }
+
+                    // CASO 2: Está en la última fila. Revisamos si ya tiene datos.
+                    const ultimaFila = actuales[ultimoIndice];
+                    const estaVacia = ultimaFila.paginas === '' && !ultimaFila.anillado;
+
+                    if (estaVacia) {
+                        // Si está vacía, solo focuseamos sin crear otra
+                        setTimeout(() => {
+                            const input = document.querySelector(`input[name="paginas"][data-index="${ultimoIndice}"]`);
+                            if (input) input.focus();
+                        }, 10);
+                        return actuales;
+                    } else {
+                        // CASO 3: Tiene datos, así que CREAMOS una fila nueva y saltamos a ella
+                        const nuevos = [...actuales, { 
+                            id: Date.now(), paginas: '', copias: 1, 
+                            tipoServicio: 'a4Color', esDobleFaz: false, anillado: false 
+                        }];
+                        setTimeout(() => {
+                            const sigInput = document.querySelector(`input[name="paginas"][data-index="${nuevos.length - 1}"]`);
+                            if (sigInput) sigInput.focus();
+                        }, 50); // Pequeño delay para que React alcance a dibujar el input nuevo
+                        return nuevos;
+                    }
+                });
+            }
         };
 
         window.addEventListener('keydown', manejarAtajosTeclado);

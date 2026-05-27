@@ -20,9 +20,10 @@ export const FilaArchivo = ({ archivo, detalleArchivo, manejarCambioArchivo, res
                     <label className="text-[10px] font-bold text-gray-400 uppercase absolute -top-2 left-3 bg-white dark:bg-gray-800 px-1 z-10">Páginas</label>
                     <input 
                         type="number" 
+                        name="paginas" // <--- ¡AGREGAR ESTO!
                         className="w-full h-12 px-2 bg-transparent border border-gray-200 dark:border-gray-600 rounded-2xl font-bold text-lg text-gray-800 dark:text-white outline-none focus:border-empresa text-center transition-all" 
                         value={archivo.paginas} 
-                        data-index={indice} // Identificador para el atajo de teclado
+                        data-index={indice} 
                         onChange={(evento) => manejarCambioArchivo(archivo.id, 'paginas', evento.target.value)} 
                         onFocus={(evento) => evento.target.select()}
                         placeholder="0" 
@@ -33,9 +34,10 @@ export const FilaArchivo = ({ archivo, detalleArchivo, manejarCambioArchivo, res
                     <label className="text-[10px] font-bold text-empresa uppercase absolute -top-2 left-3 bg-white dark:bg-gray-800 px-1 z-10">Juegos</label>
                     <input 
                         type="number" 
+                        name="copias" // <--- ¡AGREGAR ESTO TAMBIÉN!
                         className="w-full h-12 px-2 bg-transparent border border-gray-200 dark:border-gray-600 rounded-2xl font-bold text-lg text-empresa dark:text-pink-400 outline-none focus:border-empresa text-center transition-all shadow-inner dark:bg-empresa/10" 
                         value={archivo.copias} 
-                        data-index={indice} // Identificador para el atajo de teclado
+                        data-index={indice} 
                         onChange={(evento) => manejarCambioArchivo(archivo.id, 'copias', evento.target.value)} 
                         onFocus={(evento) => evento.target.select()} 
                         placeholder="1" 
