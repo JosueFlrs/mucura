@@ -44,11 +44,24 @@ export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados 
             const tecla = evento.key.toLowerCase();
 
             const atajosServicios = {
-                'c': 'a4Color',          
-                'b': 'a4BlancoYNegro',   
-                'o': 'a4ObraColor',      
-                'f': 'a4Fotografico120', 
-                'i': 'a4Ilustracion115'  
+                'c': ['a4Color'],          
+                'b': ['a4BlancoYNegro'],   
+                'o': ['a4ObraColor', 'a3ObraColor'], 
+                
+                // Cicla los gramajes fotográficos en A4
+                'f': ['a4Fotografico120', 'a4Fotografico200', 'a4Fotografico250'], 
+                
+                // ¡CAMBIADO! Ahora la 'I' asigna directamente el formato grande S.A3 de Ilustración
+                'i': ['sa3Ilustracion115', 'sa3Ilustracion200', 'sa3Ilustracion300'],  
+                
+                // ¡NUEVO! La 'E' de [E]tiqueta cicla entre adhesivo común, ilustración y OPP digital
+                'e': [
+                    'a4FotoAdhesivo135', 
+                    'a4IlustracionAdhesivo', 
+                    'sa3IlustracionAdhesivo', 
+                    'a4OppAdhesivo', 
+                    'sa3OppAdhesivo'
+                ]  
             };
 
             // Detectamos si el usuario está parado en una fila específica usando su data-index
@@ -56,13 +69,27 @@ export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados 
                 ? parseInt(elementoActivo.dataset.index) 
                 : null;
 
-            // 3. Lógica para Tipo de Papel
             if (atajosServicios[tecla]) {
                 evento.preventDefault(); 
                 setListaArchivos(actuales => {
                     const nuevos = [...actuales];
                     const target = indiceFila !== null ? indiceFila : nuevos.length - 1;
-                    nuevos[target] = { ...nuevos[target], tipoServicio: atajosServicios[tecla] };
+                    
+                    const opcionesServicio = atajosServicios[tecla];
+                    const servicioActual = nuevos[target].tipoServicio;
+                    
+                    // Buscamos si el servicio actual ya es parte de las opciones de esta tecla
+                    const indiceOpcionActual = opcionesServicio.indexOf(servicioActual);
+
+                    if (indiceOpcionActual !== -1) {
+                        // Si ya está en la lista, pasamos al siguiente (y volvemos al inicio si llegamos al final)
+                        const siguienteIndice = (indiceOpcionActual + 1) % opcionesServicio.length;
+                        nuevos[target] = { ...nuevos[target], tipoServicio: opcionesServicio[siguienteIndice] };
+                    } else {
+                        // Si es la primera vez que toca la tecla, arranca por el primero del array
+                        nuevos[target] = { ...nuevos[target], tipoServicio: opcionesServicio[0] };
+                    }
+                    
                     return nuevos;
                 });
             }
@@ -133,6 +160,8 @@ export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados 
                     }
                 });
             }
+
+
         };
 
         window.addEventListener('keydown', manejarAtajosTeclado);
