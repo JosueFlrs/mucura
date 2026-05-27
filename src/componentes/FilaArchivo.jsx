@@ -27,6 +27,7 @@ export const FilaArchivo = ({ archivo, detalleArchivo, manejarCambioArchivo, res
                         onChange={(evento) => manejarCambioArchivo(archivo.id, 'paginas', evento.target.value)} 
                         onFocus={(evento) => evento.target.select()}
                         placeholder="0" 
+                        autoFocus={indice === 0}
                     />
                 </div>
                 
