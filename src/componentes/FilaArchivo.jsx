@@ -1,6 +1,7 @@
 import { SIN_DOBLE_FAZ, CON_ANILLADO } from './CalculadoraCotizaciones';
 
-export const FilaArchivo = ({ archivo, detalleArchivo, manejarCambioArchivo, resetearArchivo }) => {
+// Agregamos 'indice' a las propiedades que recibe el componente
+export const FilaArchivo = ({ archivo, detalleArchivo, manejarCambioArchivo, resetearArchivo, indice }) => {
     const estaVacio = archivo.paginas === '' && !archivo.anillado;
     const permiteDobleFaz = !SIN_DOBLE_FAZ.includes(archivo.tipoServicio);
     const permiteAnillado = CON_ANILLADO.includes(archivo.tipoServicio);
@@ -21,8 +22,9 @@ export const FilaArchivo = ({ archivo, detalleArchivo, manejarCambioArchivo, res
                         type="number" 
                         className="w-full h-12 px-2 bg-transparent border border-gray-200 dark:border-gray-600 rounded-2xl font-bold text-lg text-gray-800 dark:text-white outline-none focus:border-empresa text-center transition-all" 
                         value={archivo.paginas} 
+                        data-index={indice} // Identificador para el atajo de teclado
                         onChange={(evento) => manejarCambioArchivo(archivo.id, 'paginas', evento.target.value)} 
-                        onFocus={(evento) => evento.target.select()} /* SELECCIÓN AUTOMÁTICA AL HACER CLIC */
+                        onFocus={(evento) => evento.target.select()}
                         placeholder="0" 
                     />
                 </div>
@@ -33,8 +35,9 @@ export const FilaArchivo = ({ archivo, detalleArchivo, manejarCambioArchivo, res
                         type="number" 
                         className="w-full h-12 px-2 bg-transparent border border-gray-200 dark:border-gray-600 rounded-2xl font-bold text-lg text-empresa dark:text-pink-400 outline-none focus:border-empresa text-center transition-all shadow-inner dark:bg-empresa/10" 
                         value={archivo.copias} 
+                        data-index={indice} // Identificador para el atajo de teclado
                         onChange={(evento) => manejarCambioArchivo(archivo.id, 'copias', evento.target.value)} 
-                        onFocus={(evento) => evento.target.select()} /* SELECCIÓN AUTOMÁTICA AL HACER CLIC */
+                        onFocus={(evento) => evento.target.select()} 
                         placeholder="1" 
                         min="1" 
                     />
@@ -42,7 +45,12 @@ export const FilaArchivo = ({ archivo, detalleArchivo, manejarCambioArchivo, res
 
                 <div className="col-span-6 relative">
                     <label className="text-[10px] font-bold text-gray-400 uppercase absolute -top-2 left-3 bg-white dark:bg-gray-800 px-1 z-10">Formato</label>
-                    <select className="w-full h-12 px-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-2xl font-semibold text-gray-700 dark:text-gray-200 outline-none focus:border-empresa appearance-none text-[12px] cursor-pointer" value={archivo.tipoServicio} onChange={(evento) => manejarCambioArchivo(archivo.id, 'tipoServicio', evento.target.value)}>
+                    <select 
+                        className="w-full h-12 px-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-2xl font-semibold text-gray-700 dark:text-gray-200 outline-none focus:border-empresa appearance-none text-[12px] cursor-pointer" 
+                        value={archivo.tipoServicio} 
+                        data-index={indice} // Identificador para el atajo de teclado
+                        onChange={(evento) => manejarCambioArchivo(archivo.id, 'tipoServicio', evento.target.value)}
+                    >
                         <optgroup label="Impresiones Clásicas">
                             <option value="a4Color">A4 Color</option>
                             <option value="a4BlancoYNegro">A4 B/N</option>
@@ -122,7 +130,7 @@ export const FilaArchivo = ({ archivo, detalleArchivo, manejarCambioArchivo, res
                                             </span>
                                             {detalleArchivo.copias > 1 && (
                                                 <span className="text-[9px] text-gray-400 font-medium">
-                                                    (${detalleArchivo.totalMinoristaUnJuego.toLocaleString('es-AR')} c/u)
+                                                    ({detalleArchivo.totalMinoristaUnJuego.toLocaleString('es-AR')} c/u)
                                                 </span>
                                             )}
                                         </div>

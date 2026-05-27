@@ -22,6 +22,80 @@ export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados 
     const [montoLibreria, setMontoLibreria] = useState('');
     const [resultadoManual, setResultadoManual] = useState(null);
 
+    // --- MAGIA: ATAJOS DE TECLADO ULTRA RÁPIDOS ---
+    useEffect(() => {
+        const manejarAtajosTeclado = (evento) => {
+            const elementoActivo = document.activeElement;
+            const etiquetaActiva = elementoActivo.tagName.toLowerCase();
+
+            // 1. REGLA INTELIGENTE: Bloqueamos si está en textarea, select o un input de TEXTO.
+            // Pero PERMITIMOS si el input es de tipo "number" (Páginas o Copias).
+            if (
+                etiquetaActiva === 'textarea' || 
+                etiquetaActiva === 'select' || 
+                (etiquetaActiva === 'input' && elementoActivo.type !== 'number')
+            ) {
+                return;
+            }
+
+            // 2. Evitar chocar con atajos del navegador
+            if (evento.ctrlKey || evento.altKey || evento.metaKey) return;
+
+            const tecla = evento.key.toLowerCase();
+
+            const atajosServicios = {
+                'c': 'a4Color',          
+                'b': 'a4BlancoYNegro',   
+                'o': 'a4ObraColor',      
+                'f': 'a4Fotografico120', 
+                'i': 'a4Ilustracion115'  
+            };
+
+            // Detectamos si el usuario está parado en una fila específica usando su data-index
+            const indiceFila = elementoActivo.dataset.index !== undefined 
+                ? parseInt(elementoActivo.dataset.index) 
+                : null;
+
+            // 3. Lógica para Tipo de Papel
+            if (atajosServicios[tecla]) {
+                evento.preventDefault(); 
+                setListaArchivos(actuales => {
+                    const nuevos = [...actuales];
+                    const target = indiceFila !== null ? indiceFila : nuevos.length - 1;
+                    nuevos[target] = { ...nuevos[target], tipoServicio: atajosServicios[tecla] };
+                    return nuevos;
+                });
+            }
+
+            // 4. Lógica para Doble Faz (tecla 'D')
+            if (tecla === 'd') {
+                evento.preventDefault();
+                setListaArchivos(actuales => {
+                    const nuevos = [...actuales];
+                    const target = indiceFila !== null ? indiceFila : nuevos.length - 1;
+                    if (!SIN_DOBLE_FAZ.includes(nuevos[target].tipoServicio)) {
+                        nuevos[target] = { ...nuevos[target], esDobleFaz: !nuevos[target].esDobleFaz };
+                    }
+                    return nuevos;
+                });
+            }
+
+            // 5. Lógica para Anillado (tecla 'A')
+            if (tecla === 'a') {
+                evento.preventDefault();
+                setListaArchivos(actuales => {
+                    const nuevos = [...actuales];
+                    const target = indiceFila !== null ? indiceFila : nuevos.length - 1;
+                    nuevos[target] = { ...nuevos[target], anillado: !nuevos[target].anillado };
+                    return nuevos;
+                });
+            }
+        };
+
+        window.addEventListener('keydown', manejarAtajosTeclado);
+        return () => window.removeEventListener('keydown', manejarAtajosTeclado);
+    }, []);
+
     useEffect(() => {
         if (datosPrecargados) {
             const listaConVacia = [...datosPrecargados, {
@@ -284,7 +358,7 @@ export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados 
 
                 <div className="space-y-4 mb-2">
                     {listaArchivos.map((archivo, indice) => (
-                        <FilaArchivo key={archivo.id} archivo={archivo} detalleArchivo={datosEnPantalla?.detalles[indice]} manejarCambioArchivo={manejarCambioArchivo} resetearArchivo={resetearArchivo} />
+                        <FilaArchivo key={archivo.id} indice={indice} archivo={archivo} detalleArchivo={datosEnPantalla?.detalles[indice]} manejarCambioArchivo={manejarCambioArchivo} resetearArchivo={resetearArchivo} />
                     ))}
                 </div>
 
