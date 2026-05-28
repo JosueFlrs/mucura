@@ -117,14 +117,15 @@ export const GestionPedidos = () => {
         return coincideBusqueda && coincideEstado;
     }).sort((a, b) => new Date(b.fechaCreacion) - new Date(a.fechaCreacion)); 
 
-    // 4. FUNCIONES DE BASE DE DATOS
     const enviarMensajeWhatsApp = async (telefono, codigoCliente, nuevoEstado) => {
         if (!telefono) return;
         const numeroFinal = "+54" + telefono.replace(/\D/g, '').slice(-10); 
         const esModoOscuro = document.documentElement.classList.contains('dark');
+        
         let mensaje = '';
         if (nuevoEstado === 'iniciado') mensaje = `¡Hola! Te avisamos desde la imprenta que tu pedido (Orden #${codigoCliente}) ya entró a producción. Te avisaremos cuando esté listo. ⚙️`;
         else if (nuevoEstado === 'finalizado') mensaje = `¡Hola! Tu pedido (Orden #${codigoCliente}) ya está LISTO para que pases a retirarlo. ¡Te esperamos! 📦✅`;
+
         if (mensaje === '') return;
 
         try {
@@ -132,14 +133,41 @@ export const GestionPedidos = () => {
             const phoneId = import.meta.env.VITE_WHATSAPP_PHONE_ID;
             if (!token || !phoneId) throw new Error("Faltan credenciales");
 
-            await fetch(`https://graph.facebook.com/v19.0/${phoneId}/messages`, {
+            const respuestaMeta = await fetch(`https://graph.facebook.com/v19.0/${phoneId}/messages`, {
                 method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ messaging_product: 'whatsapp', recipient_type: 'individual', to: numeroFinal, type: 'text', text: { preview_url: false, body: mensaje } })
+                headers: { 
+                    'Authorization': `Bearer ${token}`, 
+                    'Content-Type': 'application/json' 
+                },
+                body: JSON.stringify({ 
+                    messaging_product: 'whatsapp', 
+                    recipient_type: 'individual', 
+                    to: numeroFinal, 
+                    type: 'text', 
+                    text: { preview_url: false, body: mensaje } 
+                })
             });
+
+            if (!respuestaMeta.ok) throw new Error('Error de Meta API - Posible token vencido');
+
         } catch (error) {
-            Swal.fire({ icon: 'warning', title: 'WhatsApp Web', text: 'Se abrirá WhatsApp Web.', toast: true, position: 'bottom-end', showConfirmButton: false, timer: 3000, background: esModoOscuro ? '#1f2937' : '#ffffff', color: esModoOscuro ? '#ffffff' : '#1f2937'});
-            setTimeout(() => { window.open(`https://wa.me/${numeroFinal}?text=${encodeURIComponent(mensaje)}`, '_blank'); }, 1500);
+            console.warn(error.message);
+            
+            Swal.fire({ 
+                icon: 'warning', 
+                title: 'Aviso por WhatsApp Web', 
+                text: 'El token de la API falló. Abriendo pestaña manual...', 
+                toast: true, 
+                position: 'bottom-end', 
+                showConfirmButton: false, 
+                timer: 3000, 
+                background: esModoOscuro ? '#1f2937' : '#ffffff', 
+                color: esModoOscuro ? '#ffffff' : '#1f2937'
+            });
+            
+            setTimeout(() => { 
+                window.open(`https://wa.me/${numeroFinal}?text=${encodeURIComponent(mensaje)}`, '_blank'); 
+            }, 1500);
         }
     };
 

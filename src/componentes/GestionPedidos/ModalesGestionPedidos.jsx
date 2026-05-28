@@ -242,17 +242,34 @@ export const ModalDetallePedido = ({ pedido, cerrar }) => {
                     <div className="space-y-4 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
                         {pedido.resumenPedido?.archivosOriginales && pedido.resumenPedido.archivosOriginales.length > 0 ? (
                             <div className="space-y-3">
-                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Breakdown de Producción</p>
+                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-1">Detalle de Producción</p>
                                 {pedido.resumenPedido.archivosOriginales.map((archivo, idx) => {
                                     const nombreBase = NOMBRES_SERVICIOS[archivo.tipoServicio] || archivo.tipoServicio;
                                     const noAceptaDobleFaz = SIN_DOBLE_FAZ.includes(archivo.tipoServicio);
+                                    
                                     return (
-                                        <div key={idx} className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-3xl border border-gray-100 dark:border-gray-700 flex justify-between items-center">
+                                        <div key={idx} className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-3xl border border-gray-100 dark:border-gray-700 flex justify-between items-center gap-4">
                                             <div className="flex flex-col">
-                                                <span className="text-gray-800 dark:text-gray-100 font-black text-lg">{archivo.paginas || 0} págs <span className="text-empresa mx-1">x</span> {archivo.copias || 1} Juegos</span>
-                                                <span className="text-xs text-gray-500 font-bold uppercase tracking-tight">{nombreBase} {!noAceptaDobleFaz && (archivo.esDobleFaz ? ' • DOBLE' : ' • SIMPLE')}</span>
+                                                <span className="text-gray-800 dark:text-gray-100 font-black text-lg">
+                                                    {archivo.paginas || 0} págs <span className="text-empresa mx-1">x</span> {archivo.copias || 1} Juegos
+                                                </span>
+                                                <span className="text-xs text-gray-500 font-bold uppercase tracking-tight">
+                                                    {nombreBase} {!noAceptaDobleFaz && (archivo.esDobleFaz ? ' • DOBLE' : ' • SIMPLE')}
+                                                </span>
                                             </div>
-                                            {archivo.anillado && <div className="bg-blue-500 text-white p-2 rounded-2xl shadow-md"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg></div>}
+                                            
+                                            {/* ETIQUETA VISUAL DE ANILLADO MEJORADA */}
+                                            {archivo.anillado && (
+                                                <div className="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-3 py-2 rounded-2xl border border-blue-200 dark:border-blue-800/50 flex items-center gap-2.5 flex-shrink-0 shadow-sm">
+                                                    <div className="p-1.5 bg-blue-100 dark:bg-blue-800/50 rounded-xl">
+                                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                                                    </div>
+                                                    <div className="flex flex-col items-start pr-1">
+                                                        <span className="text-[9px] font-black uppercase tracking-widest leading-none mb-1">Anillado</span>
+                                                        <span className="text-sm font-black leading-none">{archivo.copias} Espiral{parseInt(archivo.copias) > 1 ? 'es' : ''}</span>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     )
                                 })}

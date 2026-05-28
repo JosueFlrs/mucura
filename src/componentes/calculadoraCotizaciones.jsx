@@ -8,6 +8,15 @@ export const SIN_DOBLE_FAZ = ['a4Fotografico120', 'a4Fotografico200', 'a4Fotogra
 export const CON_ANILLADO = ['a4Color', 'a4BlancoYNegro', 'a4ObraColor'];
 export const USA_ESCALA_BAJA = ['a4ObraColor', 'a3ObraColor', 'a4Ilustracion115', 'sa3Ilustracion115', 'a4Ilustracion200', 'sa3Ilustracion200', 'a4Ilustracion300', 'sa3Ilustracion300', 'a4OppAdhesivo', 'sa3OppAdhesivo', 'a4IlustracionAdhesivo', 'sa3IlustracionAdhesivo'];
 
+const NOMBRES_SERVICIOS = {
+    a4Color: "A4 Color", a4BlancoYNegro: "A4 B/N", a4ObraColor: "A4 Obra", a3ObraColor: "A3 Obra",
+    a4Cartulina: "A4 Cartulina", a4Fotografico120: "A4 Foto 120g", a4Fotografico200: "A4 Foto 200g",
+    a4Fotografico250: "A4 Foto 250g", a4FotoAdhesivo135: "A4 Foto Adhes.", sa3OppAdhesivo: "S.A3 OPP",
+    a4OppAdhesivo: "A4 OPP", sa3Ilustracion115: "S.A3 Ilust. 115g", a4Ilustracion115: "A4 Ilust. 115g",
+    sa3Ilustracion200: "S.A3 Ilust. 200g", a4Ilustracion200: "A4 Ilust. 200g", sa3Ilustracion300: "S.A3 Ilust. 300g",
+    a4Ilustracion300: "A4 Ilust. 300g", sa3IlustracionAdhesivo: "S.A3 Ilust. Adhes.", a4IlustracionAdhesivo: "A4 Ilust. Adhes."
+};
+
 export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados }) => {
     const [tarifas, setTarifas] = useState({});
     const [cargandoTarifas, setCargandoTarifas] = useState(true);
@@ -64,7 +73,6 @@ export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados 
                 ]  
             };
 
-            // Detectamos si el usuario está parado en una fila específica usando su data-index
             const indiceFila = elementoActivo.dataset.index !== undefined 
                 ? parseInt(elementoActivo.dataset.index) 
                 : null;
@@ -294,7 +302,6 @@ export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados 
     const resultadoAutomatico = useMemo(() => realizarCalculos(listaArchivos, tarifas, montoLibreria), [listaArchivos, tarifas, montoLibreria]);
     const datosEnPantalla = modoAutomatico ? resultadoAutomatico : resultadoManual;
 
-    // EL PUENTE SE CONSTRUYE AQUÍ
     const guardarOrdenEnBaseDeDatos = async (metodoPago, totalCobrado, datosAgenda = null) => {
         const esModoOscuro = document.documentElement.classList.contains('dark');
         try {
@@ -315,8 +322,11 @@ export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados 
                 }
 
                 const saldoRestante = totalEfectivoBase - montoSena;
-                const detalleFinal = `${archivosValidos.length} Archivo(s). ${datosAgenda.detalleExtra ? 'Extra: ' + datosAgenda.detalleExtra : ''}`;
                 const codigoCliente = datosAgenda.telefono.slice(-4);
+
+                const detalleFinal = datosAgenda.detalleExtra 
+                    ? datosAgenda.detalleExtra
+                    : `${archivosValidos.length} Archivo(s) enviados desde Cotizador.`;
 
                 const { error: errorTaller } = await clienteSupabase.from('pedidosTaller').insert([{
                     nombreCliente: datosAgenda.nombre || 'Cliente S/N',
@@ -331,7 +341,7 @@ export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados 
                         totalEfectivo: totalEfectivoBase,
                         sena: montoSena,
                         restante: saldoRestante,
-                        etiquetaVisual: datosAgenda.etiqueta // ACÁ INYECTAMOS LA ETIQUETA
+                        etiquetaVisual: datosAgenda.etiqueta 
                     } 
                 }]);
                 
