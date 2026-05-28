@@ -32,6 +32,10 @@ export const ResumenOrden = ({ datosEnPantalla, guardarOrdenEnBaseDeDatos }) => 
     const [agendaDetalleExtra, setAgendaDetalleExtra] = useState('');
     const [agendaEtiqueta, setAgendaEtiqueta] = useState('Impresión Std');
 
+    // --- ESTADOS PARA PAGO MIXTO ---
+    const [mostrarModalMixto, setMostrarModalMixto] = useState(false);
+    const [montoEfectivoMixto, setMontoEfectivoMixto] = useState('');
+
     const totalBase = datosEnPantalla?.totalSinRedondear || 0;
     const totalDigitalRedondeado = Math.ceil(totalBase / 100) * 100;
     const montoDescuentoEfectivo = totalBase * 0.13;
@@ -41,6 +45,13 @@ export const ResumenOrden = ({ datosEnPantalla, guardarOrdenEnBaseDeDatos }) => 
     // Cálculo en vivo del saldo restante
     const senaCalculada = parseInt(agendaSena) || 0;
     const saldoRestante = totalEfectivoRedondeado - senaCalculada;
+
+    // Cálculos en vivo para el modal
+    const efectivoIngresado = parseInt(montoEfectivoMixto) || 0;
+    // Si el efectivo cubre la mitad del precio con descuento, se gana el descuento
+    const aplicaDescuento = efectivoIngresado >= (totalEfectivoRedondeado / 2);
+    const totalAplicado = aplicaDescuento ? totalEfectivoRedondeado : totalDigitalRedondeado;
+    const restanteDigital = Math.max(0, totalAplicado - efectivoIngresado);
 
     const NOMBRES_SERVICIOS = {
         a4Color: "A4 Color", a4BlancoYNegro: "A4 B/N", a4ObraColor: "A4 Obra", a3ObraColor: "A3 Obra",
@@ -55,15 +66,19 @@ export const ResumenOrden = ({ datosEnPantalla, guardarOrdenEnBaseDeDatos }) => 
     const tieneLibreria = datosEnPantalla && datosEnPantalla.montoLibreria > 0;
     const puedeConfirmar = totalBase > 0 && metodoPagoSeleccionado !== null;
 
-    const manejarConfirmacion = async () => {
-        if (!puedeConfirmar) return;
-        setProcesandoCompra(true);
-        const totalFinal = metodoPagoSeleccionado === 'efectivo' ? totalEfectivoRedondeado : totalDigitalRedondeado;
-        
-        await guardarOrdenEnBaseDeDatos(metodoPagoSeleccionado, totalFinal);
-        
-        setProcesandoCompra(false);
-        setMetodoPagoSeleccionado(null);
+    const manejarConfirmacion = () => {
+        let totalFinal = metodoPagoSeleccionado === 'efectivo' ? totalEfectivoRedondeado : totalDigitalRedondeado;
+        let desgloseMixto = null;
+
+        if (metodoPagoSeleccionado === 'mixto') {
+            totalFinal = totalAplicado;
+            desgloseMixto = {
+                efectivo: efectivoIngresado,
+                digital: restanteDigital
+            };
+        }
+
+        guardarOrdenEnBaseDeDatos(metodoPagoSeleccionado, totalFinal, null, desgloseMixto);
     };
 
     const abrirModalAgenda = () => {
@@ -99,7 +114,7 @@ export const ResumenOrden = ({ datosEnPantalla, guardarOrdenEnBaseDeDatos }) => 
 
         setProcesandoCompra(false);
         setMostrarModalAgenda(false);
-        setAgendaNombre(''); setAgendaTelefono(''); setAgendaDetalleExtra(''); 
+        setAgendaNombre(''); setAgendaTelefono(''); setAgendaDetalleExtra('');
         setAgendaSena(''); setAgendaFecha(obtenerFechaLocalISO()); setAgendaEtiqueta('Impresión Std');
         setMetodoPagoSeleccionado(null);
     };
@@ -147,7 +162,7 @@ export const ResumenOrden = ({ datosEnPantalla, guardarOrdenEnBaseDeDatos }) => 
                                     })}
                                 </div>
                             )}
-                            
+
                             {tieneLibreria && (
                                 <div className="mt-3 pt-3 border-t border-dashed border-gray-200 dark:border-gray-700 flex justify-between items-center text-sm">
                                     <span className="text-gray-500 dark:text-gray-400 font-medium">Librería / Extras</span>
@@ -162,8 +177,8 @@ export const ResumenOrden = ({ datosEnPantalla, guardarOrdenEnBaseDeDatos }) => 
 
                 <div className="mt-6 pt-5 border-t border-gray-100 dark:border-gray-700">
                     <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-3">1. Seleccione Método de Pago</p>
-                    
-                    <button 
+
+                    <button
                         onClick={() => setMetodoPagoSeleccionado('digital')}
                         className={`w-full text-left p-4 rounded-2xl mb-3 flex justify-between items-center transition-all border-2 ${metodoPagoSeleccionado === 'digital' ? 'border-empresa bg-empresa/5 shadow-md' : 'border-transparent bg-gray-50 dark:bg-gray-900 hover:border-gray-300 dark:hover:border-gray-600'}`}
                     >
@@ -174,7 +189,7 @@ export const ResumenOrden = ({ datosEnPantalla, guardarOrdenEnBaseDeDatos }) => 
                         <span className={`text-2xl font-black ${metodoPagoSeleccionado === 'digital' ? 'text-empresa' : 'text-gray-800 dark:text-white'}`}>${totalBase > 0 ? totalDigitalRedondeado.toLocaleString('es-AR') : '0'}</span>
                     </button>
 
-                    <button 
+                    <button
                         onClick={() => setMetodoPagoSeleccionado('efectivo')}
                         className={`w-full text-left p-5 rounded-2xl relative overflow-hidden group transition-all border-2 ${metodoPagoSeleccionado === 'efectivo' ? 'border-green-400 shadow-lg ring-4 ring-green-500/20' : 'border-transparent opacity-90 hover:opacity-100'}`}
                     >
@@ -196,7 +211,15 @@ export const ResumenOrden = ({ datosEnPantalla, guardarOrdenEnBaseDeDatos }) => 
                             </div>
                         </div>
                     </button>
-                    
+
+                    {/* --- NUEVO BOTÓN MIXTO --- */}
+                    <button
+                        onClick={() => setMostrarModalMixto(true)}
+                        className={`w-full mt-3 py-2.5 rounded-xl font-bold text-xs uppercase tracking-widest transition-all border-2 border-dashed flex justify-center items-center gap-2 ${metodoPagoSeleccionado === 'mixto' ? 'border-purple-500 text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-900/20 shadow-sm' : 'border-gray-200 dark:border-gray-700 text-gray-400 hover:border-purple-400 hover:text-purple-500'}`}
+                    >
+                        Ambos (Efec + Transf)
+                    </button>
+
                     <div className="mt-6 pt-4 border-t border-gray-100 dark:border-gray-700">
                         <button onClick={manejarConfirmacion} disabled={!puedeConfirmar || procesandoCompra} className={`w-full py-4 rounded-2xl font-black text-lg uppercase tracking-widest transition-all shadow-md flex justify-center items-center gap-2 ${puedeConfirmar ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:scale-[1.02]' : 'bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed'}`}>
                             {procesandoCompra ? <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : "Confirmar Compra"}
@@ -214,7 +237,7 @@ export const ResumenOrden = ({ datosEnPantalla, guardarOrdenEnBaseDeDatos }) => 
             {mostrarModalAgenda && (
                 <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in">
                     <div className="bg-white dark:bg-gray-800 rounded-[32px] shadow-2xl border border-gray-100 dark:border-gray-700 w-full max-w-lg flex flex-col relative animate-slide-up overflow-hidden">
-                        
+
                         <div className="bg-gray-50 dark:bg-gray-900/50 p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-start">
                             <div>
                                 <h3 className="text-xl font-black text-gray-800 dark:text-white flex items-center gap-2 mb-2">Agendar Producción</h3>
@@ -237,14 +260,14 @@ export const ResumenOrden = ({ datosEnPantalla, guardarOrdenEnBaseDeDatos }) => 
                         </div>
 
                         <form onSubmit={manejarAgendarPedido} className="p-6 flex flex-col gap-4">
-                            
+
                             {/* SELECTOR DE ETIQUETAS */}
                             <div>
                                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2">Tipo de Pedido</label>
                                 <div className="flex flex-wrap gap-2">
                                     {OPCIONES_ETIQUETAS.map(tag => (
-                                        <button 
-                                            key={tag.id} 
+                                        <button
+                                            key={tag.id}
                                             type="button"
                                             onClick={() => setAgendaEtiqueta(tag.id)}
                                             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${agendaEtiqueta === tag.id ? 'bg-empresa/10 border-empresa text-empresa' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-500 hover:border-gray-300'}`}
@@ -286,6 +309,59 @@ export const ResumenOrden = ({ datosEnPantalla, guardarOrdenEnBaseDeDatos }) => 
                                 {procesandoCompra ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : "Confirmar y Agendar"}
                             </button>
                         </form>
+                    </div>
+                </div>
+            )}
+            {/* --- MODAL PAGO MIXTO --- */}
+            {mostrarModalMixto && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-700 w-full max-w-sm p-6 relative animate-slide-up">
+                        <button onClick={() => setMostrarModalMixto(false)} className="absolute top-4 right-4 w-8 h-8 flex justify-center items-center rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 hover:text-red-500 transition-colors">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+
+                        <h3 className="text-xl font-black text-gray-800 dark:text-white mb-1 flex items-center gap-2">
+                            Pago Mixto
+                        </h3>
+                        <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium mb-5 leading-tight">
+                            Si el cliente entrega en efectivo el 50% o más del valor, se aplica el precio con descuento.
+                        </p>
+
+                        <div className="relative mb-5">
+                            <label className="text-[10px] font-bold text-purple-500 uppercase absolute -top-2 left-3 bg-white dark:bg-gray-800 px-1">Efectivo que entrega</label>
+                            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 font-black text-lg">$</span>
+                            <input
+                                type="number"
+                                autoFocus
+                                className="w-full h-14 pl-8 pr-4 bg-transparent border-2 border-purple-200 dark:border-purple-900/50 rounded-xl font-black text-gray-800 dark:text-white outline-none focus:border-purple-500 transition-all text-xl"
+                                value={montoEfectivoMixto}
+                                onChange={(e) => setMontoEfectivoMixto(e.target.value)}
+                                placeholder="0"
+                            />
+                        </div>
+
+                        <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-2xl border border-purple-100 dark:border-purple-900/30 mb-5 flex justify-between items-center">
+                            <div>
+                                <p className="text-[9px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-widest">Total Aplicado</p>
+                                <p className={`text-sm font-black ${aplicaDescuento ? 'text-green-600 dark:text-green-400' : 'text-blue-600 dark:text-blue-400'}`}>
+                                    ${totalAplicado.toLocaleString('es-AR')} <span className="text-[10px] font-medium">{aplicaDescuento ? '(C/ Desc.)' : '(Lista)'}</span>
+                                </p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-[9px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-widest">A Transferir</p>
+                                <p className="text-2xl font-black text-purple-600 dark:text-purple-400 leading-none mt-1">${restanteDigital.toLocaleString('es-AR')}</p>
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={() => {
+                                setMetodoPagoSeleccionado('mixto');
+                                setMostrarModalMixto(false);
+                            }}
+                            className="w-full h-12 bg-purple-600 hover:bg-purple-700 text-white font-black rounded-xl uppercase tracking-widest text-xs transition-colors shadow-lg shadow-purple-500/30"
+                        >
+                            Confirmar Cobro Mixto
+                        </button>
                     </div>
                 </div>
             )}

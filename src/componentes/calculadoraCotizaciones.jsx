@@ -302,7 +302,7 @@ export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados 
     const resultadoAutomatico = useMemo(() => realizarCalculos(listaArchivos, tarifas, montoLibreria), [listaArchivos, tarifas, montoLibreria]);
     const datosEnPantalla = modoAutomatico ? resultadoAutomatico : resultadoManual;
 
-    const guardarOrdenEnBaseDeDatos = async (metodoPago, totalCobrado, datosAgenda = null) => {
+    const guardarOrdenEnBaseDeDatos = async (metodoPago, totalCobrado, datosAgenda = null, desgloseMixto = null) => {
         const esModoOscuro = document.documentElement.classList.contains('dark');
         try {
             const archivosValidos = listaArchivos.filter(a => parseInt(a.paginas) > 0 || a.anillado);
@@ -353,7 +353,7 @@ export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados 
                     fechaCreacion: new Date().toISOString(), 
                     metodoPago, 
                     totalCobrado,
-                    resumenPedido: { ...datosEnPantalla.resumen, archivosOriginales: archivosValidos }, 
+                    resumenPedido: { ...datosEnPantalla.resumen, archivosOriginales: archivosValidos, desglosePago: desgloseMixto }, 
                     montoLibreria: datosEnPantalla.montoLibreria
                 };
                 const { error: errorVenta } = await clienteSupabase.from('ordenesProduccion').insert([nuevaOrdenVenta]);

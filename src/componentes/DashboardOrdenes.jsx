@@ -135,12 +135,25 @@ export const DashboardOrdenes = () => {
                                         ${(orden.montoLibreria || 0).toLocaleString('es-AR')}
                                     </td>
                                     <td className="p-5">
-                                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${orden.metodoPago === 'efectivo' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400'}`}>
+                                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                            orden.metodoPago === 'efectivo' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' : 
+                                            orden.metodoPago === 'mixto' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400' : 
+                                            'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400'
+                                        }`}>
                                             {orden.metodoPago}
                                         </span>
                                     </td>
-                                    <td className="p-5 text-right text-lg font-black text-gray-800 dark:text-white">
-                                        ${orden.totalCobrado.toLocaleString('es-AR')}
+                                    <td className="p-5 text-right">
+                                        <div className="text-lg font-black text-gray-800 dark:text-white">
+                                            ${orden.totalCobrado.toLocaleString('es-AR')}
+                                        </div>
+                                        {/* NUEVO: Pastillas de desglose si es Mixto */}
+                                        {orden.metodoPago === 'mixto' && orden.resumenPedido?.desglosePago && (
+                                            <div className="flex flex-col items-end gap-1 mt-1.5">
+                                                <span className="text-[9px] font-bold text-green-600 bg-green-50 dark:text-green-400 dark:bg-green-900/30 px-1.5 py-0.5 rounded">💵 ${orden.resumenPedido.desglosePago.efectivo.toLocaleString('es-AR')}</span>
+                                                <span className="text-[9px] font-bold text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-900/30 px-1.5 py-0.5 rounded">📱 ${orden.resumenPedido.desglosePago.digital.toLocaleString('es-AR')}</span>
+                                            </div>
+                                        )}
                                     </td>
                                     <td className="p-5 text-center">
                                         <button
@@ -254,14 +267,30 @@ export const DashboardOrdenes = () => {
 
                             <div className="mt-8 pt-5 border-t border-gray-100 dark:border-gray-700 flex justify-between items-end">
                                 <div>
-                                    <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-1">Método de Pago</p>
-                                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${ordenSeleccionada.metodoPago === 'efectivo' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400'}`}>
+                                    <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-2">Método de Pago</p>
+                                    <span className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                        ordenSeleccionada.metodoPago === 'efectivo' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' : 
+                                        ordenSeleccionada.metodoPago === 'mixto' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400' : 
+                                        'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400'
+                                    }`}>
                                         {ordenSeleccionada.metodoPago}
                                     </span>
                                 </div>
                                 <div className="text-right">
                                     <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-1">Cobrado</p>
                                     <p className="text-3xl font-black text-gray-900 dark:text-white leading-none">${ordenSeleccionada.totalCobrado.toLocaleString('es-AR')}</p>
+                                    
+                                    {/* NUEVO: Desglose horizontal en el Modal */}
+                                    {ordenSeleccionada.metodoPago === 'mixto' && ordenSeleccionada.resumenPedido?.desglosePago && (
+                                        <div className="flex gap-2 justify-end mt-2.5">
+                                            <span className="text-[10px] font-bold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-2 py-1 rounded-md border border-green-100 dark:border-green-800/50">
+                                                💵 ${ordenSeleccionada.resumenPedido.desglosePago.efectivo.toLocaleString('es-AR')}
+                                            </span>
+                                            <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded-md border border-blue-100 dark:border-blue-800/50">
+                                                📱 ${ordenSeleccionada.resumenPedido.desglosePago.digital.toLocaleString('es-AR')}
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
