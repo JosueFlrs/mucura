@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { clienteSupabase } from '../servicios/clienteSupabase';
+import { clienteSupabase } from '/mucura/src/servicios/clienteSupabase';
 import Swal from 'sweetalert2';
 
 const NOMBRES_SERVICIOS = {
@@ -83,7 +83,11 @@ export const DashboardOrdenes = () => {
     };
 
     const formatearFecha = (fechaISO) => {
-        const fecha = new Date(fechaISO);
+        if (!fechaISO) return '';
+        // Truco: Si Supabase devuelve la fecha sin la 'Z', JS asume que es local y suma 3hs.
+        // Forzamos que la interprete como UTC añadiendo la 'Z' al final si le falta.
+        const fechaValida = fechaISO.endsWith('Z') ? fechaISO : `${fechaISO}Z`;
+        const fecha = new Date(fechaValida);
         return fecha.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
     };
 
@@ -94,6 +98,7 @@ export const DashboardOrdenes = () => {
     return (
         <div className="max-w-6xl mx-auto flex flex-col gap-6 animate-fade-in pb-10">
             
+            {/* INFORME SUPERIOR */}
             <div className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row justify-between items-center gap-4">
                 <div>
                     <h2 className="text-3xl font-black text-gray-800 dark:text-white tracking-tight">Dashboard de Ventas</h2>
@@ -105,35 +110,65 @@ export const DashboardOrdenes = () => {
                 </div>
             </div>
 
+            {/* TABLA PRINCIPAL */}
             <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden relative">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-100 dark:border-gray-700 text-xs uppercase tracking-widest text-gray-400 font-bold">
                                 <th className="p-5">Fecha / Hora</th>
-                                <th className="p-5">Resumen Rápido</th>
+                                <th className="p-5">Concepto</th> {/* CAMBIADO: De Resumen Rápido a Concepto */}
                                 <th className="p-5">Librería</th>
                                 <th className="p-5">Método Pago</th>
                                 <th className="p-5 text-right">Total</th>
-                                <th className="p-5 text-center">Acciones</th>
+                                <th className="p-5 text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                             {ordenes.map((orden) => (
                                 <tr 
                                     key={orden.id} 
-                                    onClick={() => setOrdenSeleccionada(orden)}
-                                    className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+                                    onDoubleClick={() => setOrdenSeleccionada(orden)} // CAMBIADO: Ahora se abre exclusivamente con Doble Click
+                                    className="hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors cursor-pointer select-none"
                                 >
                                     <td className="p-5 text-sm font-semibold text-gray-700 dark:text-gray-300">
                                         {formatearFecha(orden.fechaCreacion)}
                                     </td>
+                                    
+                                    {/* --- MEJORA: COLUMNA CONCEPTO INTELIGENTE --- */}
                                     <td className="p-5 text-xs text-gray-500 dark:text-gray-400">
-                                        <span className="font-bold">{orden.resumenPedido?.cantidadArchivosImpresos || 0}</span> Juegos | <span className="font-bold">{orden.resumenPedido?.cantidadAnillados || 0}</span> Anillados
+                                        {orden.resumenPedido?.notaExtra ? (
+                                            <div className="flex flex-col gap-1">
+                                                <span className={`font-black uppercase tracking-wide text-[10px] px-2 py-0.5 rounded w-max ${
+                                                    orden.resumenPedido.notaExtra.includes('SEÑA') ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                                                }`}>
+                                                    {orden.resumenPedido.notaExtra.includes('SEÑA') ? '💰 Seña Registrada' : '✅ Saldo de Taller'}
+                                                </span>
+                                                <span className="text-[11px] font-bold text-gray-700 dark:text-gray-300 truncate max-w-[250px] italic">
+                                                    {orden.resumenPedido.notaExtra}
+                                                </span>
+                                            </div>
+                                        ) : (
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className="font-black text-gray-700 dark:text-gray-200 uppercase tracking-wide text-[10px] bg-gray-100 dark:bg-gray-900 px-2 py-0.5 rounded w-max">
+                                                    🛒 Venta Directa
+                                                </span>
+                                                <span className="text-[11px] font-medium text-gray-400 mt-0.5">
+                                                    {orden.resumenPedido?.cantidadArchivosImpresos || 0} Juegos | {orden.resumenPedido?.cantidadAnillados || 0} Anillados
+                                                </span>
+                                            </div>
+                                        )}
                                     </td>
+                                    
+                                    {/* --- MEJORA: OCULTAR MONTO LIBRERÍA SI ES CERO --- */}
                                     <td className="p-5 text-sm text-gray-600 dark:text-gray-300">
-                                        ${(orden.montoLibreria || 0).toLocaleString('es-AR')}
+                                        {orden.montoLibreria > 0 ? (
+                                            <span className="font-bold text-gray-700 dark:text-gray-200">${orden.montoLibreria.toLocaleString('es-AR')}</span>
+                                        ) : (
+                                            <span className="text-gray-300 dark:text-gray-600 font-normal">-</span>
+                                        )}
                                     </td>
+                                    
                                     <td className="p-5">
                                         <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                                             orden.metodoPago === 'efectivo' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' : 
@@ -143,18 +178,19 @@ export const DashboardOrdenes = () => {
                                             {orden.metodoPago}
                                         </span>
                                     </td>
+                                    
                                     <td className="p-5 text-right">
-                                        <div className="text-lg font-black text-gray-800 dark:text-white">
+                                        <span className="text-lg font-black text-gray-800 dark:text-white block">
                                             ${orden.totalCobrado.toLocaleString('es-AR')}
-                                        </div>
-                                        {/* NUEVO: Pastillas de desglose si es Mixto */}
+                                        </span>
                                         {orden.metodoPago === 'mixto' && orden.resumenPedido?.desglosePago && (
-                                            <div className="flex flex-col items-end gap-1 mt-1.5">
-                                                <span className="text-[9px] font-bold text-green-600 bg-green-50 dark:text-green-400 dark:bg-green-900/30 px-1.5 py-0.5 rounded">💵 ${orden.resumenPedido.desglosePago.efectivo.toLocaleString('es-AR')}</span>
-                                                <span className="text-[9px] font-bold text-blue-600 bg-blue-50 dark:text-blue-400 dark:bg-blue-900/30 px-1.5 py-0.5 rounded">📱 ${orden.resumenPedido.desglosePago.digital.toLocaleString('es-AR')}</span>
+                                            <div className="flex flex-col items-end gap-0.5 mt-1">
+                                                <span className="text-[9px] font-black text-green-600 dark:text-green-400">💵 ${orden.resumenPedido.desglosePago.efectivo.toLocaleString('es-AR')}</span>
+                                                <span className="text-[9px] font-black text-blue-600 dark:text-blue-400">📱 ${orden.resumenPedido.desglosePago.digital.toLocaleString('es-AR')}</span>
                                             </div>
                                         )}
                                     </td>
+                                    
                                     <td className="p-5 text-center">
                                         <button
                                             onClick={(evento) => eliminarOrden(orden.id, evento)}
@@ -176,6 +212,7 @@ export const DashboardOrdenes = () => {
                 </div>
             </div>
 
+            {/* MODAL DETALLES PROFUNDOS (AL HACER DOBLE CLICK) */}
             {ordenSeleccionada && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-gray-900/40 dark:bg-black/60 backdrop-blur-sm animate-fade-in">
                     <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-700 overflow-hidden w-full max-w-md flex flex-col relative animate-slide-up">
@@ -187,88 +224,100 @@ export const DashboardOrdenes = () => {
                             <svg className="w-4 h-4 font-bold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
 
-                        <div className="p-6 md:p-8 max-h-[85vh] overflow-y-auto hide-scrollbar">
-                            <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-1 flex items-center gap-2">
-                                <svg className="w-5 h-5 text-empresa" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                                Detalle de la Orden
-                            </h3>
-                            <p className="text-xs text-gray-400 font-medium mb-6">{formatearFecha(ordenSeleccionada.fechaCreacion)}</p>
-
-                            <div className="space-y-4">
-                                
-                                {/* NUEVO: DESGLOSE EXACTO POR ARCHIVO Y JUEGOS (Solo si existe el dato en la BD) */}
-                                {ordenSeleccionada.resumenPedido?.archivosOriginales && ordenSeleccionada.resumenPedido.archivosOriginales.length > 0 && (
-                                    <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-700">
-                                        <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-3">Detalle Exacto por Archivo</p>
-                                        <div className="space-y-2">
-                                            {ordenSeleccionada.resumenPedido.archivosOriginales.map((archivo, idx) => {
-                                                const nombreBase = NOMBRES_SERVICIOS[archivo.tipoServicio] || archivo.tipoServicio;
-                                                const noAceptaDobleFaz = SIN_DOBLE_FAZ.includes(archivo.tipoServicio);
-                                                
-                                                return (
-                                                    <div key={idx} className="flex justify-between items-center text-sm bg-white dark:bg-gray-800 p-2.5 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
-                                                        <div className="flex flex-col">
-                                                            <span className="font-bold text-gray-800 dark:text-gray-200">
-                                                                {archivo.paginas || 0} págs <span className="text-gray-400 font-normal mx-1">x</span> <span className="text-empresa">{archivo.copias || 1} Juegos</span>
-                                                            </span>
-                                                            <span className="text-[10px] text-gray-500 mt-0.5">
-                                                                {nombreBase} {!noAceptaDobleFaz && (archivo.esDobleFaz ? '(Doble)' : '(Simple)')}
-                                                            </span>
-                                                        </div>
-                                                        {archivo.anillado && (
-                                                            <span className="text-[9px] bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-1 rounded-md font-bold uppercase tracking-widest">
-                                                                Anillado
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* TOTALES AGRUPADOS */}
-                                {ordenSeleccionada.resumenPedido?.paginas && Object.keys(ordenSeleccionada.resumenPedido.paginas).length > 0 && (
-                                    <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-700">
-                                        <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-3">Páginas Totales a Imprimir</p>
-                                        {Object.entries(ordenSeleccionada.resumenPedido.paginas).map(([clave, cantidad]) => {
-                                            const [tipo, dobleFazStr] = clave.split('-');
-                                            const esDobleFaz = dobleFazStr === 'true';
-                                            const nombreBase = NOMBRES_SERVICIOS[tipo] || tipo;
-                                            const noAceptaDobleFaz = SIN_DOBLE_FAZ.includes(tipo);
-
-                                            return (
-                                                <div key={clave} className="flex justify-between items-center text-sm mb-2 last:mb-0">
-                                                    <span className="text-gray-600 dark:text-gray-300 font-medium">
-                                                        {nombreBase} {!noAceptaDobleFaz && (esDobleFaz ? <span className="text-[10px] text-empresa font-bold ml-1">(Doble)</span> : <span className="text-[10px] text-gray-400 ml-1">(Simple)</span>)}
-                                                    </span>
-                                                    <span className="text-gray-800 dark:text-white font-black">{cantidad} págs</span>
-                                                </div>
-                                            )
-                                        })}
-                                    </div>
-                                )}
-
-                                <div className="space-y-2 px-1">
-                                    {ordenSeleccionada.resumenPedido?.cantidadAnillados > 0 && (
-                                        <div className="flex justify-between items-center text-sm">
-                                            <span className="text-gray-500 dark:text-gray-400 font-medium">Anillados (Total)</span>
-                                            <span className="text-gray-800 dark:text-white font-bold">{ordenSeleccionada.resumenPedido.cantidadAnillados}</span>
-                                        </div>
-                                    )}
-                                    {ordenSeleccionada.montoLibreria > 0 && (
-                                        <div className="flex justify-between items-center text-sm">
-                                            <span className="text-gray-500 dark:text-gray-400 font-medium">Librería / Otros</span>
-                                            <span className="text-gray-800 dark:text-white font-bold">${ordenSeleccionada.montoLibreria.toLocaleString('es-AR')}</span>
-                                        </div>
-                                    )}
-                                </div>
+                        <div className="p-6 md:p-8 max-h-[85vh] overflow-y-auto hide-scrollbar flex flex-col gap-4">
+                            <div>
+                                <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-1 flex items-center gap-2">
+                                    <svg className="w-5 h-5 text-empresa" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                    Detalle de la Operación
+                                </h3>
+                                <p className="text-xs text-gray-400 font-medium">{formatearFecha(ordenSeleccionada.fechaCreacion)}</p>
                             </div>
 
-                            <div className="mt-8 pt-5 border-t border-gray-100 dark:border-gray-700 flex justify-between items-end">
+                            {/* --- CORRECCIÓN: EXPANSIÓN COMPLETA DE LA NOTA EXTRA Y COMENTARIOS DEL RECUADRO --- */}
+                            {/* --- MOSTRAR EL DETALLE REAL DEL TRABAJO --- */}
+                            {ordenSeleccionada.resumenPedido?.detalleTrabajo && (
+                                <div className="bg-blue-50/60 dark:bg-blue-950/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/40 text-sm shadow-inner animate-fade-in">
+                                    <p className="text-[10px] text-blue-600 dark:text-blue-400 uppercase tracking-widest font-black mb-1.5">Detalle del Pedido</p>
+                                    <p className="font-bold text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-wrap">
+                                        {ordenSeleccionada.resumenPedido.detalleTrabajo}
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* DESGLOSE EXACTO POR ARCHIVO (Ventas de Mostrador o Señas del Cotizador) */}
+                            {ordenSeleccionada.resumenPedido?.archivosOriginales && ordenSeleccionada.resumenPedido.archivosOriginales.length > 0 && (
+                                <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-700">
+                                    <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-3">Desglose de Producción</p>
+                                    <div className="space-y-2">
+                                        {ordenSeleccionada.resumenPedido.archivosOriginales.map((archivo, idx) => {
+                                            const nombreBase = NOMBRES_SERVICIOS[archivo.tipoServicio] || archivo.tipoServicio;
+                                            const noAceptaDobleFaz = SIN_DOBLE_FAZ.includes(archivo.tipoServicio);
+                                            
+                                            return (
+                                                <div key={idx} className="flex justify-between items-center text-sm bg-white dark:bg-gray-800 p-2.5 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
+                                                    <div className="flex flex-col">
+                                                        <span className="font-bold text-gray-800 dark:text-gray-200">
+                                                            {archivo.paginas || 0} págs <span className="text-gray-400 font-normal mx-1">x</span> <span className="text-empresa">{archivo.copias || 1} Juegos</span>
+                                                        </span>
+                                                        <span className="text-[10px] text-gray-500 mt-0.5">
+                                                            {nombreBase} {!noAceptaDobleFaz && (archivo.esDobleFaz ? '(Doble)' : '(Simple)')}
+                                                        </span>
+                                                    </div>
+                                                    {archivo.anillado && (
+                                                        <span className="text-[9px] bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 px-2 py-1 rounded-md font-bold uppercase tracking-widest">
+                                                            Anillado
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* TOTALES AGRUPADOS */}
+                            {ordenSeleccionada.resumenPedido?.paginas && Object.keys(ordenSeleccionada.resumenPedido.paginas).length > 0 && (
+                                <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-2xl border border-gray-100 dark:border-gray-700">
+                                    <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-3">Páginas Totales a Imprimir</p>
+                                    {Object.entries(ordenSeleccionada.resumenPedido.paginas).map(([clave, cantidad]) => {
+                                        const [tipo, dobleFazStr] = clave.split('-');
+                                        const esDobleFaz = dobleFazStr === 'true';
+                                        const nombreBase = NOMBRES_SERVICIOS[tipo] || tipo;
+                                        const noAceptaDobleFaz = SIN_DOBLE_FAZ.includes(tipo);
+
+                                        return (
+                                            <div key={clave} className="flex justify-between items-center text-sm mb-2 last:mb-0">
+                                                <span className="text-gray-600 dark:text-gray-300 font-medium">
+                                                    {nombreBase} {!noAceptaDobleFaz && (esDobleFaz ? <span className="text-[10px] text-empresa font-bold ml-1">(Doble)</span> : <span className="text-[10px] text-gray-400 ml-1">(Simple)</span>)}
+                                                </span>
+                                                <span className="text-gray-800 dark:text-white font-black">{cantidad} págs</span>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            )}
+
+                            {/* OTROS SERVICIOS ACUMULADOS */}
+                            <div className="space-y-2 px-1">
+                                {ordenSeleccionada.resumenPedido?.cantidadAnillados > 0 && (
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-gray-500 dark:text-gray-400 font-medium">Anillados (Total)</span>
+                                        <span className="text-gray-800 dark:text-white font-bold">{ordenSeleccionada.resumenPedido.cantidadAnillados}</span>
+                                    </div>
+                                )}
+                                {ordenSeleccionada.montoLibreria > 0 && (
+                                    <div className="flex justify-between items-center text-sm">
+                                        <span className="text-gray-500 dark:text-gray-400 font-medium">Librería / Otros</span>
+                                        <span className="text-gray-800 dark:text-white font-bold">${ordenSeleccionada.montoLibreria.toLocaleString('es-AR')}</span>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* METODO Y DESGLOSE INTERIOR DEL MODAL */}
+                            <div className="mt-4 pt-5 border-t border-gray-100 dark:border-gray-700 flex justify-between items-end">
                                 <div>
-                                    <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-2">Método de Pago</p>
-                                    <span className={`px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                    <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-1">Método de Pago</p>
+                                    <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                                         ordenSeleccionada.metodoPago === 'efectivo' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400' : 
                                         ordenSeleccionada.metodoPago === 'mixto' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-400' : 
                                         'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400'
@@ -280,13 +329,12 @@ export const DashboardOrdenes = () => {
                                     <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold mb-1">Cobrado</p>
                                     <p className="text-3xl font-black text-gray-900 dark:text-white leading-none">${ordenSeleccionada.totalCobrado.toLocaleString('es-AR')}</p>
                                     
-                                    {/* NUEVO: Desglose horizontal en el Modal */}
                                     {ordenSeleccionada.metodoPago === 'mixto' && ordenSeleccionada.resumenPedido?.desglosePago && (
-                                        <div className="flex gap-2 justify-end mt-2.5">
-                                            <span className="text-[10px] font-bold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-2 py-1 rounded-md border border-green-100 dark:border-green-800/50">
+                                        <div className="flex gap-2 justify-end mt-2">
+                                            <span className="text-[10px] font-bold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-2 py-0.5 rounded-md">
                                                 💵 ${ordenSeleccionada.resumenPedido.desglosePago.efectivo.toLocaleString('es-AR')}
                                             </span>
-                                            <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded-md border border-blue-100 dark:border-blue-800/50">
+                                            <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-md">
                                                 📱 ${ordenSeleccionada.resumenPedido.desglosePago.digital.toLocaleString('es-AR')}
                                             </span>
                                         </div>

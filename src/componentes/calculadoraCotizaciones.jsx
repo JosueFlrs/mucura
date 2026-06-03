@@ -312,7 +312,6 @@ export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados 
                 const montoSena = datosAgenda.sena > 0 ? datosAgenda.sena : 0;
                 
                 if (montoSena > 0) {
-                    // Ahora usamos el método y desglose que nos mande el modal
                     const ordenSena = {
                         fechaCreacion: new Date().toISOString(), 
                         metodoPago: datosAgenda.metodoPagoSena || 'efectivo', 
@@ -320,8 +319,9 @@ export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados 
                         resumenPedido: { 
                             ...datosEnPantalla.resumen, 
                             notaExtra: 'SEÑA PEDIDO', 
+                            detalleTrabajo: datosAgenda.detalleExtra, // <--- ¡AGREGAMOS ESTO ACÁ TAMBIÉN!
                             archivosOriginales: archivosValidos,
-                            desglosePago: datosAgenda.desgloseSena || null // <--- Guardamos cómo pagó la seña
+                            desglosePago: datosAgenda.desgloseSena || null 
                         }, 
                         montoLibreria: 0
                     };

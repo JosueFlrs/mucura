@@ -90,6 +90,7 @@ export const ModalAltaManual = ({ cerrar, onSuccess }) => {
                     totalCobrado: senaCalculadaManual,
                     resumenPedido: { 
                         notaExtra: `SEÑA PEDIDO MANUAL #${codigoCliente}`, 
+                        detalleTrabajo: nuevoDetalle, // <--- ¡ESTA ES LA LÍNEA MÁGICA!
                         archivosOriginales: [],
                         desglosePago: desgloseSena
                     }, 
