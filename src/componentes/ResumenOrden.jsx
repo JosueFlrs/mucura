@@ -32,6 +32,11 @@ export const ResumenOrden = ({ datosEnPantalla, guardarOrdenEnBaseDeDatos }) => 
     const [agendaDetalleExtra, setAgendaDetalleExtra] = useState('');
     const [agendaEtiqueta, setAgendaEtiqueta] = useState('Impresión Std');
 
+    // --- NUEVOS ESTADOS PARA PAGO DE SEÑA (FLUJO DIRECTO) ---
+    const [tipoSeña, setTipoSeña] = useState('ninguna'); // 'ninguna', 'efectivo', 'digital', 'mixto'
+    const [montoSenaEfectivo, setMontoSenaEfectivo] = useState('');
+    const [montoSenaDigital, setMontoSenaDigital] = useState('');
+
     // --- ESTADOS PARA PAGO MIXTO ---
     const [mostrarModalMixto, setMostrarModalMixto] = useState(false);
     const [montoEfectivoMixto, setMontoEfectivoMixto] = useState('');
@@ -43,7 +48,12 @@ export const ResumenOrden = ({ datosEnPantalla, guardarOrdenEnBaseDeDatos }) => 
     const totalEfectivoRedondeado = Math.ceil(totalEfectivoExacto / 100) * 100;
 
     // Cálculo en vivo del saldo restante
-    const senaCalculada = parseInt(agendaSena) || 0;
+    // Cálculo inteligente de la seña sumando lo que ingresan
+    const senaCalculada =
+        tipoSeña === 'ninguna' ? 0 :
+            tipoSeña === 'efectivo' ? (parseInt(montoSenaEfectivo) || 0) :
+                tipoSeña === 'digital' ? (parseInt(montoSenaDigital) || 0) :
+                    (parseInt(montoSenaEfectivo) || 0) + (parseInt(montoSenaDigital) || 0);
     const saldoRestante = totalEfectivoRedondeado - senaCalculada;
 
     // Cálculos en vivo para el modal
@@ -97,11 +107,20 @@ export const ResumenOrden = ({ datosEnPantalla, guardarOrdenEnBaseDeDatos }) => 
             return;
         }
         if (senaCalculada > totalEfectivoRedondeado) {
-            Swal.fire({ icon: 'error', title: 'Error', text: 'La seña no puede ser mayor al total en efectivo.' });
+            Swal.fire({ icon: 'error', title: 'Error', text: 'La seña no puede ser mayor al total del pedido.' });
             return;
         }
 
         setProcesandoCompra(true);
+
+        // Armamos el desglose exacto si la seña es mixta
+        let desgloseSena = null;
+        if (tipoSeña === 'mixto' && senaCalculada > 0) {
+            desgloseSena = {
+                efectivo: parseInt(montoSenaEfectivo) || 0,
+                digital: parseInt(montoSenaDigital) || 0
+            };
+        }
 
         await guardarOrdenEnBaseDeDatos('efectivo', totalEfectivoRedondeado, {
             nombre: agendaNombre,
@@ -109,14 +128,19 @@ export const ResumenOrden = ({ datosEnPantalla, guardarOrdenEnBaseDeDatos }) => 
             fecha: agendaFecha,
             sena: senaCalculada,
             detalleExtra: agendaDetalleExtra,
-            etiqueta: agendaEtiqueta
+            etiqueta: agendaEtiqueta,
+            metodoPagoSena: tipoSeña === 'ninguna' ? null : tipoSeña,
+            desgloseSena: desgloseSena
         });
 
         setProcesandoCompra(false);
         setMostrarModalAgenda(false);
         setAgendaNombre(''); setAgendaTelefono(''); setAgendaDetalleExtra('');
-        setAgendaSena(''); setAgendaFecha(obtenerFechaLocalISO()); setAgendaEtiqueta('Impresión Std');
+        setAgendaFecha(obtenerFechaLocalISO()); setAgendaEtiqueta('Impresión Std');
         setMetodoPagoSeleccionado(null);
+
+        // Limpiamos la seña
+        setTipoSeña('ninguna'); setMontoSenaEfectivo(''); setMontoSenaDigital('');
     };
 
     return (
@@ -289,15 +313,52 @@ export const ResumenOrden = ({ datosEnPantalla, guardarOrdenEnBaseDeDatos }) => 
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label className="text-[10px] font-bold text-blue-500 uppercase tracking-widest block mb-1">Para el Día *</label>
-                                    <input type="date" required className="w-full h-11 px-3 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-900/30 rounded-xl font-bold text-gray-800 dark:text-white outline-none focus:border-blue-400 cursor-pointer" value={agendaFecha} onChange={(e) => setAgendaFecha(e.target.value)} />
+                            
+                            {/* FECHA */}
+                            <div>
+                                <label className="text-[10px] font-bold text-blue-500 uppercase tracking-widest block mb-1">Para el Día *</label>
+                                <input type="date" required className="w-full h-11 px-3 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-900/30 rounded-xl font-bold text-gray-800 dark:text-white outline-none focus:border-blue-400 cursor-pointer" value={agendaFecha} onChange={(e) => setAgendaFecha(e.target.value)} />
+                            </div>
+
+                            {/* BLOQUE SEÑA INTELIGENTE */}
+                            <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-2xl border border-gray-200 dark:border-gray-700">
+                                <div className="flex justify-between items-center mb-3">
+                                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">¿Deja Seña?</label>
+                                    <span className="text-xs font-black text-gray-800 dark:text-white">Total Seña: ${senaCalculada.toLocaleString('es-AR')}</span>
                                 </div>
-                                <div>
-                                    <label className="text-[10px] font-bold text-green-500 uppercase tracking-widest block mb-1">Seña Dejada ($)</label>
-                                    <input type="number" className="w-full h-11 px-4 bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-900/30 rounded-xl font-black text-gray-800 dark:text-white outline-none focus:border-green-400" value={agendaSena} onChange={(e) => setAgendaSena(e.target.value)} placeholder="Ej: 1500" min="0" max={totalEfectivoRedondeado} />
+
+                                <div className="flex gap-2 mb-3">
+                                    <button type="button" onClick={() => { setTipoSeña('ninguna'); setMontoSenaEfectivo(''); setMontoSenaDigital(''); }} className={`flex-1 py-2 rounded-xl text-[10px] sm:text-xs font-bold transition-all border ${tipoSeña === 'ninguna' ? 'bg-gray-200 border-gray-400 text-gray-700 dark:bg-gray-700 dark:border-gray-500 dark:text-white' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-500 hover:border-gray-300'}`}>❌ No</button>
+                                    <button type="button" onClick={() => { setTipoSeña('efectivo'); setMontoSenaDigital(''); }} className={`flex-1 py-2 rounded-xl text-[10px] sm:text-xs font-bold transition-all border ${tipoSeña === 'efectivo' ? 'bg-green-100 border-green-400 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-500 hover:border-gray-300'}`}>💵 Efec.</button>
+                                    <button type="button" onClick={() => { setTipoSeña('digital'); setMontoSenaEfectivo(''); }} className={`flex-1 py-2 rounded-xl text-[10px] sm:text-xs font-bold transition-all border ${tipoSeña === 'digital' ? 'bg-blue-100 border-blue-400 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-500 hover:border-gray-300'}`}>📱 Transf.</button>
+                                    <button type="button" onClick={() => setTipoSeña('mixto')} className={`flex-1 py-2 rounded-xl text-[10px] sm:text-xs font-bold transition-all border ${tipoSeña === 'mixto' ? 'bg-purple-100 border-purple-400 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-500 hover:border-gray-300'}`}>⚖️ Mixto</button>
                                 </div>
+
+                                {/* INPUTS DINÁMICOS */}
+                                {tipoSeña === 'efectivo' && (
+                                    <div className="relative animate-fade-in">
+                                        <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-green-600 font-black">$</span>
+                                        <input type="number" autoFocus className="w-full h-11 pl-8 pr-4 bg-white dark:bg-gray-800 border border-green-300 dark:border-green-800/50 rounded-xl font-black text-gray-800 dark:text-white outline-none focus:border-green-500" value={montoSenaEfectivo} onChange={(e) => setMontoSenaEfectivo(e.target.value)} placeholder="Monto en efectivo..." />
+                                    </div>
+                                )}
+                                {tipoSeña === 'digital' && (
+                                    <div className="relative animate-fade-in">
+                                        <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-blue-600 font-black">$</span>
+                                        <input type="number" autoFocus className="w-full h-11 pl-8 pr-4 bg-white dark:bg-gray-800 border border-blue-300 dark:border-blue-800/50 rounded-xl font-black text-gray-800 dark:text-white outline-none focus:border-blue-500" value={montoSenaDigital} onChange={(e) => setMontoSenaDigital(e.target.value)} placeholder="Monto transferido..." />
+                                    </div>
+                                )}
+                                {tipoSeña === 'mixto' && (
+                                    <div className="flex gap-3 animate-fade-in">
+                                        <div className="relative flex-1">
+                                            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-green-600 font-black">$</span>
+                                            <input type="number" autoFocus className="w-full h-11 pl-8 pr-3 bg-white dark:bg-gray-800 border border-green-300 dark:border-green-800/50 rounded-xl font-bold text-gray-800 dark:text-white outline-none focus:border-green-500 transition-colors" value={montoSenaEfectivo} onChange={(e) => setMontoSenaEfectivo(e.target.value)} placeholder="Efectivo..." />
+                                        </div>
+                                        <div className="relative flex-1">
+                                            <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-blue-600 font-black">$</span>
+                                            <input type="number" className="w-full h-11 pl-8 pr-3 bg-white dark:bg-gray-800 border border-blue-300 dark:border-blue-800/50 rounded-xl font-bold text-gray-800 dark:text-white outline-none focus:border-blue-500 transition-colors" value={montoSenaDigital} onChange={(e) => setMontoSenaDigital(e.target.value)} placeholder="Transfer..." />
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             <div>

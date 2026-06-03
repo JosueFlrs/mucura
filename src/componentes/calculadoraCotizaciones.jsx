@@ -310,12 +310,19 @@ export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados 
             
             if (datosAgenda) {
                 const montoSena = datosAgenda.sena > 0 ? datosAgenda.sena : 0;
+                
                 if (montoSena > 0) {
+                    // Ahora usamos el método y desglose que nos mande el modal
                     const ordenSena = {
                         fechaCreacion: new Date().toISOString(), 
-                        metodoPago: 'efectivo', 
+                        metodoPago: datosAgenda.metodoPagoSena || 'efectivo', 
                         totalCobrado: montoSena,
-                        resumenPedido: { ...datosEnPantalla.resumen, notaExtra: 'SEÑA PEDIDO', archivosOriginales: archivosValidos }, 
+                        resumenPedido: { 
+                            ...datosEnPantalla.resumen, 
+                            notaExtra: 'SEÑA PEDIDO', 
+                            archivosOriginales: archivosValidos,
+                            desglosePago: datosAgenda.desgloseSena || null // <--- Guardamos cómo pagó la seña
+                        }, 
                         montoLibreria: 0
                     };
                     await clienteSupabase.from('ordenesProduccion').insert([ordenSena]);
@@ -341,12 +348,13 @@ export const CalculadoraCotizaciones = ({ datosPrecargados, setDatosPrecargados 
                         totalEfectivo: totalEfectivoBase,
                         sena: montoSena,
                         restante: saldoRestante,
-                        etiquetaVisual: datosAgenda.etiqueta 
+                        etiquetaVisual: datosAgenda.etiqueta,
+                        metodoPagoSena: datosAgenda.metodoPagoSena // Opcional: para que quede en el registro del taller
                     } 
                 }]);
                 
                 if (errorTaller) throw errorTaller;
-                Swal.fire({ icon: 'success', title: 'Agendado', text: `Orden #${codigoCliente} enviada al Taller`, toast: true, position: 'bottom-end', showConfirmButton: false, timer: 3000, background: esModoOscuro ? '#1F2937' : '#ffffff', color: esModoOscuro ? '#ffffff' : '#1F2937' });
+                Swal.fire({ icon: 'success', title: 'Agendado', text: `Orden #${codigoCliente} enviada al Taller`, toast: true, position: 'bottom-end', showConfirmButton: false, timer: 3000 });
             
             } else {
                 const nuevaOrdenVenta = {

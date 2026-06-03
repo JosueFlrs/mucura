@@ -33,7 +33,7 @@ const obtenerFechaLocalISO = (diasAdicionales = 0) => {
 };
 
 // ==========================================
-// 1. MODAL ALTA MANUAL
+// 1. MODAL ALTA MANUAL (FLUJO DE SEÑA OPTIMIZADO)
 // ==========================================
 export const ModalAltaManual = ({ cerrar, onSuccess }) => {
     const [nuevoNombre, setNuevoNombre] = useState('');
@@ -41,12 +41,23 @@ export const ModalAltaManual = ({ cerrar, onSuccess }) => {
     const [nuevoDetalle, setNuevoDetalle] = useState('');
     const [nuevaFecha, setNuevaFecha] = useState(obtenerFechaLocalISO());
     const [nuevoTotal, setNuevoTotal] = useState('');
-    const [nuevaSena, setNuevaSena] = useState('');
     const [nuevaEtiqueta, setNuevaEtiqueta] = useState('Impresión Std');
     const [cargando, setCargando] = useState(false);
 
+    // --- NUEVOS ESTADOS PARA PAGO DE SEÑA DIRECTO ---
+    const [tipoSeña, setTipoSeña] = useState('ninguna'); // 'ninguna', 'efectivo', 'digital', 'mixto'
+    const [montoSenaEfectivo, setMontoSenaEfectivo] = useState('');
+    const [montoSenaDigital, setMontoSenaDigital] = useState('');
+
     const totalCalculadoManual = parseInt(nuevoTotal) || 0;
-    const senaCalculadaManual = parseInt(nuevaSena) || 0;
+
+    // Cálculo inteligente de la seña sumando dinámicamente las cajas
+    const senaCalculadaManual =
+        tipoSeña === 'ninguna' ? 0 :
+        tipoSeña === 'efectivo' ? (parseInt(montoSenaEfectivo) || 0) :
+        tipoSeña === 'digital' ? (parseInt(montoSenaDigital) || 0) :
+        (parseInt(montoSenaEfectivo) || 0) + (parseInt(montoSenaDigital) || 0);
+
     const saldoRestanteManual = totalCalculadoManual - senaCalculadaManual;
 
     const crearPedido = async (evento) => {
@@ -63,17 +74,45 @@ export const ModalAltaManual = ({ cerrar, onSuccess }) => {
         const codigoCliente = nuevoTelefono.slice(-4);
 
         try {
+            // Guardamos el registro de caja para la seña
             if (senaCalculadaManual > 0) {
+                let desgloseSena = null;
+                if (tipoSeña === 'mixto') {
+                    desgloseSena = {
+                        efectivo: parseInt(montoSenaEfectivo) || 0,
+                        digital: parseInt(montoSenaDigital) || 0
+                    };
+                }
+
                 await clienteSupabase.from('ordenesProduccion').insert([{
-                    fechaCreacion: new Date().toISOString(), metodoPago: 'efectivo', totalCobrado: senaCalculadaManual,
-                    resumenPedido: { notaExtra: `SEÑA PEDIDO MANUAL #${codigoCliente}`, archivosOriginales: [] }, montoLibreria: 0
+                    fechaCreacion: new Date().toISOString(), 
+                    metodoPago: tipoSeña, 
+                    totalCobrado: senaCalculadaManual,
+                    resumenPedido: { 
+                        notaExtra: `SEÑA PEDIDO MANUAL #${codigoCliente}`, 
+                        archivosOriginales: [],
+                        desglosePago: desgloseSena
+                    }, 
+                    montoLibreria: 0
                 }]);
             }
 
+            // Guardamos el pedido en el taller
             const { error } = await clienteSupabase.from('pedidosTaller').insert([{
-                nombreCliente: nuevoNombre || 'Cliente S/N', telefono: nuevoTelefono, codigoCliente, 
-                detalle: nuevoDetalle, fechaEntrega: nuevaFecha, estado: 'sin_iniciar', fechaCreacion: new Date().toISOString(),
-                resumenPedido: { totalEfectivo: totalCalculadoManual, sena: senaCalculadaManual, restante: saldoRestanteManual, etiquetaVisual: nuevaEtiqueta } 
+                nombreCliente: nuevoNombre || 'Cliente S/N', 
+                telefono: nuevoTelefono, 
+                codigoCliente, 
+                detalle: nuevoDetalle, 
+                fechaEntrega: nuevaFecha, 
+                estado: 'sin_iniciar', 
+                fechaCreacion: new Date().toISOString(),
+                resumenPedido: { 
+                    totalEfectivo: totalCalculadoManual, 
+                    sena: senaCalculadaManual, 
+                    restante: saldoRestanteManual, 
+                    etiquetaVisual: nuevaEtiqueta,
+                    metodoPagoSena: tipoSeña === 'ninguna' ? null : tipoSeña
+                } 
             }]);
             
             if (error) throw error;
@@ -91,6 +130,8 @@ export const ModalAltaManual = ({ cerrar, onSuccess }) => {
     return (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in">
             <div className="bg-white dark:bg-gray-800 rounded-[32px] shadow-2xl border border-gray-100 dark:border-gray-700 w-full max-w-lg flex flex-col relative animate-slide-up overflow-hidden">
+                
+                {/* CABECERA */}
                 <div className="bg-gray-50 dark:bg-gray-900/50 p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-start">
                     <div>
                         <h3 className="text-xl font-black text-gray-800 dark:text-white flex items-center gap-2 mb-2">Agendar Producción Manual</h3>
@@ -104,6 +145,8 @@ export const ModalAltaManual = ({ cerrar, onSuccess }) => {
                         <svg className="w-4 h-4 font-bold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
+
+                {/* FORMULARIO */}
                 <form onSubmit={crearPedido} className="p-6 flex flex-col gap-4">
                     <div>
                         <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2">Tipo de Pedido</label>
@@ -113,15 +156,59 @@ export const ModalAltaManual = ({ cerrar, onSuccess }) => {
                             ))}
                         </div>
                     </div>
+
                     <div className="grid grid-cols-2 gap-3">
                         <div><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">WhatsApp *</label><input type="text" required className="w-full h-11 px-4 bg-gray-50 dark:bg-gray-900 border border-empresa/30 rounded-xl font-black text-gray-800 dark:text-white outline-none focus:border-empresa transition-colors" value={nuevoTelefono} onChange={(e) => setNuevoTelefono(e.target.value)} placeholder="Ej: 2615555555" /></div>
                         <div><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Nombre (Opcional)</label><input type="text" className="w-full h-11 px-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-xl font-medium text-gray-800 dark:text-white outline-none focus:border-empresa transition-colors" value={nuevoNombre} onChange={(e) => setNuevoNombre(e.target.value)} placeholder="Ej: Juan" /></div>
                     </div>
-                    <div className="grid grid-cols-3 gap-3">
-                        <div className="col-span-1"><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Costo Total ($)</label><input type="number" className="w-full h-11 px-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl font-black text-gray-800 dark:text-white outline-none focus:border-empresa" value={nuevoTotal} onChange={(e) => setNuevoTotal(e.target.value)} placeholder="Ej: 5000" min="0" /></div>
-                        <div className="col-span-1"><label className="text-[10px] font-bold text-green-500 uppercase tracking-widest block mb-1">Seña ($)</label><input type="number" className="w-full h-11 px-3 bg-green-50 dark:bg-green-900/10 border border-green-200 dark:border-green-900/30 rounded-xl font-black text-gray-800 dark:text-white outline-none focus:border-green-400" value={nuevaSena} onChange={(e) => setNuevaSena(e.target.value)} placeholder="Ej: 1500" min="0" max={totalCalculadoManual > 0 ? totalCalculadoManual : undefined} /></div>
-                        <div className="col-span-1"><label className="text-[10px] font-bold text-blue-500 uppercase tracking-widest block mb-1">Para el Día *</label><input type="date" required className="w-full h-11 px-2 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-900/30 rounded-xl font-bold text-gray-800 dark:text-white outline-none focus:border-blue-400 cursor-pointer" value={nuevaFecha} onChange={(e) => setNuevaFecha(e.target.value)} /></div>
+
+                    {/* REDUCIDO A 2 COLUMNAS: TOTAL Y FECHA */}
+                    <div className="grid grid-cols-2 gap-3">
+                        <div><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Costo Total ($)</label><input type="number" required className="w-full h-11 px-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-xl font-black text-gray-800 dark:text-white outline-none focus:border-empresa" value={nuevoTotal} onChange={(e) => setNuevoTotal(e.target.value)} placeholder="Ej: 5000" min="0" /></div>
+                        <div><label className="text-[10px] font-bold text-blue-500 uppercase tracking-widest block mb-1">Para el Día *</label><input type="date" required className="w-full h-11 px-2 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-900/30 rounded-xl font-bold text-gray-800 dark:text-white outline-none focus:border-blue-400 cursor-pointer" value={nuevaFecha} onChange={(e) => setNuevaFecha(e.target.value)} /></div>
                     </div>
+
+                    {/* NUEVA CAJA INTELIGENTE DE SEÑA DIRECTA */}
+                    <div className="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-2xl border border-gray-200 dark:border-gray-700">
+                        <div className="flex justify-between items-center mb-3">
+                            <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">¿Deja Seña?</label>
+                            <span className="text-xs font-black text-gray-800 dark:text-white">Total Seña: ${senaCalculadaManual.toLocaleString('es-AR')}</span>
+                        </div>
+
+                        <div className="flex gap-2 mb-3">
+                            <button type="button" onClick={() => { setTipoSeña('ninguna'); setMontoSenaEfectivo(''); setMontoSenaDigital(''); }} className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all border ${tipoSeña === 'ninguna' ? 'bg-gray-200 border-gray-400 text-gray-700 dark:bg-gray-700 dark:border-gray-500 dark:text-white' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-500 hover:border-gray-300'}`}>❌ No</button>
+                            <button type="button" onClick={() => { setTipoSeña('efectivo'); setMontoSenaDigital(''); }} className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all border ${tipoSeña === 'efectivo' ? 'bg-green-100 border-green-400 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-500 hover:border-gray-300'}`}>💵 Efec.</button>
+                            <button type="button" onClick={() => { setTipoSeña('digital'); setMontoSenaEfectivo(''); }} className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all border ${tipoSeña === 'digital' ? 'bg-blue-100 border-blue-400 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-500 hover:border-gray-300'}`}>📱 Transf.</button>
+                            <button type="button" onClick={() => setTipoSeña('mixto')} className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all border ${tipoSeña === 'mixto' ? 'bg-purple-100 border-purple-400 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-500 hover:border-gray-300'}`}>⚖️ Mixto</button>
+                        </div>
+
+                        {/* DESPLIEGUE DE INPUTS SEGÚN LA SELECCIÓN */}
+                        {tipoSeña === 'efectivo' && (
+                             <div className="relative animate-fade-in">
+                                 <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-green-600 font-black">$</span>
+                                 <input type="number" autoFocus className="w-full h-11 pl-8 pr-4 bg-white dark:bg-gray-800 border border-green-300 dark:border-green-800/50 rounded-xl font-black text-gray-800 dark:text-white outline-none focus:border-green-500" value={montoSenaEfectivo} onChange={(e) => setMontoSenaEfectivo(e.target.value)} placeholder="Monto en efectivo..." />
+                             </div>
+                        )}
+                        {tipoSeña === 'digital' && (
+                             <div className="relative animate-fade-in">
+                                 <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-blue-600 font-black">$</span>
+                                 <input type="number" autoFocus className="w-full h-11 pl-8 pr-4 bg-white dark:bg-gray-800 border border-blue-300 dark:border-blue-800/50 rounded-xl font-black text-gray-800 dark:text-white outline-none focus:border-blue-500" value={montoSenaDigital} onChange={(e) => setMontoSenaDigital(e.target.value)} placeholder="Monto transferido..." />
+                             </div>
+                        )}
+                        {tipoSeña === 'mixto' && (
+                             <div className="flex gap-3 animate-fade-in">
+                                 <div className="relative flex-1">
+                                     <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-green-600 font-black">$</span>
+                                     <input type="number" autoFocus className="w-full h-11 pl-8 pr-3 bg-white dark:bg-gray-800 border border-green-300 dark:border-green-800/50 rounded-xl font-bold text-gray-800 dark:text-white outline-none focus:border-green-500 transition-colors" value={montoSenaEfectivo} onChange={(e) => setMontoSenaEfectivo(e.target.value)} placeholder="Efectivo..." />
+                                 </div>
+                                 <div className="relative flex-1">
+                                     <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-blue-600 font-black">$</span>
+                                     <input type="number" className="w-full h-11 pl-8 pr-3 bg-white dark:bg-gray-800 border border-blue-300 dark:border-blue-800/50 rounded-xl font-bold text-gray-800 dark:text-white outline-none focus:border-blue-500 transition-colors" value={montoSenaDigital} onChange={(e) => setMontoSenaDigital(e.target.value)} placeholder="Transfer..." />
+                                 </div>
+                             </div>
+                        )}
+                    </div>
+
                     <div><label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Detalle del Trabajo *</label><textarea required rows="2" className="w-full p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-600 rounded-xl font-medium text-gray-800 dark:text-white outline-none focus:border-empresa resize-none" value={nuevoDetalle} onChange={(e) => setNuevoDetalle(e.target.value)} placeholder="Ej: Imprimir 3 PDF..."></textarea></div>
                     <button type="submit" disabled={cargando} className="w-full h-12 mt-1 bg-empresa text-white font-black rounded-2xl hover:bg-pink-600 transition-colors text-sm uppercase tracking-widest shadow-xl flex justify-center items-center">
                         {cargando ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : "Confirmar y Agendar"}
